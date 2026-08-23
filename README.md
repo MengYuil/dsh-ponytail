@@ -14,7 +14,7 @@ dsh plugin --profile web add link:$(pwd)
 dsh plugin --profile web add github:MengYuil/dsh-ponytail
 
 # 方式三：Release 打包件（先下 tgz）
-dsh plugin --profile web add file:./dsh-ponytail-0.1.0.tgz
+dsh plugin --profile web add file:./mengyuil-dsh-ponytail-0.1.1.tgz
 ```
 
 装完重启 profile 生效（`dsh web` / `dsh tui`）。装载完成后，会话技能目录里会出现 6 个 `ponytail*` 技能，发 `/ponytail-help` 立即验证。
@@ -34,7 +34,7 @@ dsh plugin --profile web add file:./dsh-ponytail-0.1.0.tgz
   - `/ponytail-help` — 参考卡。
 - **停用**：说 `stop ponytail` 或 `normal mode`；随时 `/ponytail` 恢复。
 - **默认值**：环境变量 `PONYTAIL_DEFAULT_MODE` > `~/.config/ponytail/config.json` 的 `{"defaultMode": "lite"}` > `full`。
-- **子代理**：`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）可排除指定子代理；缺省全部注入。
+- **子代理**：常驻段作用于当前会话自身；DSH 内置 `subagent` 工具跑的是隔离的全新子代理、不继承本 persona。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）用于在 harness 会下发给子代理的场景里排除指定子代理；缺省全部注入。
 
 ## 效率
 
@@ -46,7 +46,7 @@ dsh plugin --profile web add file:./dsh-ponytail-0.1.0.tgz
 
 - 强度档位只切换阶梯表格/示例，阶梯正文恒定；lite/full/ultra 体积差异很小（行为倾向，非大小差异）。
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
-- 默认值按进程缓存，外部改 `config.json` 需重启 dsh。
+- 配置文件的默认档位热更新（fs 轮询 ~1s，作用于无覆盖的会话）；环境变量改动仍需重启。
 - 发行 `lib/` 是预编译产物；改源码请回主仓重建后同步。
 
 ## 许可

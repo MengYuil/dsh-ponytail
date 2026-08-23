@@ -18,10 +18,12 @@ import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { renderSkillContent } from '@deepseek-ai/dsh-skill'
+import { unwatchFile, watchFile } from 'node:fs'
 import { ponytailSkills } from './content.ts'
 import { getPonytailInstructions } from './instructions.ts'
 import {
   compileSubagentMatcher,
+  configPath,
   isDeactivationCommand,
   isSubagentSession,
   ModeStore,
@@ -172,8 +174,18 @@ export function apply(ctx: Context): void {
   const store = new ModeStore()
   const matcher = compileSubagentMatcher(process.env.PONYTAIL_SUBAGENT_MATCHER)
 
-  // Always-on ruleset. Registered globally, so every agent — including
-  // subagents — inherits it; the optional matcher scopes subagent injection.
+  // Hot-reload the config-file default: edits apply to sessions without an
+  // override on their next request, no restart. Env-var changes still require
+  // one, since the environment is fixed once the process starts.
+  const configFile = configPath()
+  const onConfigChange = (): void => { defaultMode = readDefaultMode() }
+  watchFile(configFile, { interval: 1000 }, onConfigChange).unref()
+  ctx.effect(() => () => unwatchFile(configFile, onConfigChange), 'ponytail: config hot reload')
+
+  // Always-on ruleset for the session's own agent. The built-in spawn subagent
+  // tool runs fresh, isolated children that do not carry the persona; the
+  // optional matcher suppresses the section for subagent sessions (those the
+  // harness does surface it to) whose preset does not match.
   ctx.systemPrompt.section({
     name: 'ponytail',
     order: SECTION_ORDER,
