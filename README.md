@@ -1,5 +1,7 @@
 # dsh-ponytail
 
+![CI](https://github.com/MengYuil/dsh-ponytail/actions/workflows/ci.yml/badge.svg)
+
 把 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)（「懒惰资深开发者」最少代码心智）移植成 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件。功能与效率与上游一致：7 级阶梯规则集每轮注入、强度切换、`/ponytail-*` 斜杠命令。
 
 ## 安装
@@ -19,7 +21,7 @@ dsh plugin --profile web add file:./mengyuil-dsh-ponytail-0.1.1.tgz
 
 装完重启 profile 生效（`dsh web` / `dsh tui`）。装载完成后，会话技能目录里会出现 6 个 `ponytail*` 技能，发 `/ponytail-help` 立即验证。
 
-> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`，改源码后回主仓重建，再把 `lib/` 同步回本仓库即可发版。
+> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`，改源码后回主仓重建，再把 `lib/` 同步回本仓库即可发版。本地改 `src/` 想快速验证编译，可用 `DSH_CHECKOUT=/path/to/deepseek-harness ./scripts/build.sh`（只做类型检查）。
 
 ## 功能
 
