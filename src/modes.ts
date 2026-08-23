@@ -5,7 +5,7 @@
  * level via the `/ponytail` command is session-scoped and lives in an
  * in-memory, per-agent {@link ModeStore}.
  *
- * @module @mengyuil/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'

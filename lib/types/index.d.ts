@@ -10,7 +10,7 @@
  * from `PONYTAIL_DEFAULT_MODE` then `~/.config/ponytail/config.json` (see
  * {@link readDefaultMode}).
  *
- * @module @mengyuil/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 import type { Context } from '@deepseek-ai/cordis';
 export declare const name = "ponytail";

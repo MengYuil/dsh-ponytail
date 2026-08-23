@@ -3,7 +3,7 @@
  * `hooks/ponytail-instructions.js`, so the injected text is byte-for-byte the
  * same ruleset every other host emits, filtered to the active intensity.
  *
- * @module @mengyuil/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 import { type PonytailRuntimeMode } from './modes.ts';
 /**

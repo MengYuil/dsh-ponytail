@@ -1,6 +1,6 @@
 /**
- * Package-owned invariant companion for `@mengyuil/dsh-ponytail`.
- * @module @mengyuil/dsh-ponytail/invariant
+ * Package-owned invariant companion for `@mengyuly/dsh-ponytail`.
+ * @module @mengyuly/dsh-ponytail/invariant
  */
 import type { Context } from '@deepseek-ai/cordis';
 /** Cordis companion plugin name. */

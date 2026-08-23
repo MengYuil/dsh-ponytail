@@ -37,4 +37,4 @@ jobs:
       - name: Packed tarball contains the installable pieces
         run: |
           npm pack --pack-destination "$RUNNER_TEMP" >/dev/null
-          tar -tzf "$RUNNER_TEMP"/mengyuil-dsh-ponytail-*.tgz | grep -qE 'package/(lib/index.js|cordis.patch.yml)' && echo 'tarball ok'
+          tar -tzf "$RUNNER_TEMP"/mengyuly-dsh-ponytail-*.tgz | grep -qE 'package/(lib/index.js|cordis.patch.yml)' && echo 'tarball ok'

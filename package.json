@@ -1,5 +1,5 @@
 {
-  "name": "@mengyuil/dsh-ponytail",
+  "name": "@mengyuly/dsh-ponytail",
   "description": "Lazy senior dev mode for DeepSeek Harness: always-on minimal-code ruleset, intensity switching, and short review/audit/debt/gain/help skills",
   "version": "0.1.2",
   "publishConfig": {

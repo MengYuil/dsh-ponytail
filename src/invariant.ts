@@ -1,13 +1,13 @@
 /**
- * Package-owned invariant companion for `@mengyuil/dsh-ponytail`.
- * @module @mengyuil/dsh-ponytail/invariant
+ * Package-owned invariant companion for `@mengyuly/dsh-ponytail`.
+ * @module @mengyuly/dsh-ponytail/invariant
  */
 
 /* jscpd:ignore-start */
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 
-const PACKAGE_NAME = '@mengyuil/dsh-ponytail'
+const PACKAGE_NAME = '@mengyuly/dsh-ponytail'
 
 /** Cordis companion plugin name. */
 export const name = 'ponytail-invariant'

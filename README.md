@@ -16,7 +16,7 @@ dsh plugin --profile web add link:$(pwd)
 dsh plugin --profile web add github:MengYuil/dsh-ponytail
 
 # 方式三：Release 打包件（先下 tgz）
-dsh plugin --profile web add file:./mengyuil-dsh-ponytail-0.1.2.tgz
+dsh plugin --profile web add file:./mengyuly-dsh-ponytail-0.1.2.tgz
 ```
 
 装完重启 profile 生效（`dsh web` / `dsh tui`）。装载完成后，会话技能目录里会出现 6 个 `ponytail*` 技能，发 `/ponytail-help` 立即验证。
