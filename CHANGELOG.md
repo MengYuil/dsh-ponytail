@@ -3,6 +3,35 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] - 2026-08-24
+
+### Fixed
+
+- 修复运行时 JS 与 TypeScript declarations 不一致：v0.1.3 只同步了
+  `lib/index.js`/`lib/invariant.js`，声明文件停留在旧版本。
+- `compileSubagentMatcher` 声明恢复正确（`{ matcher, invalid }`），与运行时一致。
+- 补齐 `readDefaultModeInfo`、`sessionKey` 及诊断类型
+  （`DefaultModeIssueKind` / `DefaultModeIssue` / `DefaultModeResolution`）的声明。
+- `writeDefaultMode` 声明注释补充「写入失败会抛出异常」。
+- 移除失效的 declaration source map 引用：声明生成关闭 `declarationMap`，
+  发布的 `.d.ts` 不再携带指向不存在 `.d.ts.map` 的 `sourceMappingURL`。
+
+### Changed
+
+- 发布流程改为同步**完整** `lib/`（两个运行时 bundle + 全部 `.d.ts`）：
+  `npm run sync:dist`（要求 `DSH_CHECKOUT`，在权威 checkout 中重建后整体同步）。
+- CI 增加防漂移检查：src 导出 ↔ 声明导出、运行时导出 ↔ 声明导出、
+  `modes.d.ts` 关键签名、无悬空 source map、tarball 内容/版本/安装后 smoke、
+  NodeNext + `skipLibCheck:false` 的声明消费测试。
+- tarball 现在包含 `CHANGELOG.md`。
+
+### Tests
+
+- npm tarball smoke test（仅声明 peer 安装后加载）。
+- TypeScript consumer test（打包安装后编译，非相对路径读 src）。
+- 运行时/声明导出一致性验证。
+- src↔d.ts 漂移检查（CI 与 `verify:dist` 双保险）。
+
 ## [0.1.3] - 2026-08-23
 
 ### Fixed

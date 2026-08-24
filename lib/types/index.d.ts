@@ -10,7 +10,7 @@
  * from `PONYTAIL_DEFAULT_MODE` then `~/.config/ponytail/config.json` (see
  * {@link readDefaultMode}).
  *
- * @module @mengyuly/dsh-ponytail
+ * @module @deepseek-ai/dsh-ponytail
  */
 import type { Context } from '@deepseek-ai/cordis';
 export declare const name = "ponytail";
@@ -34,4 +34,3 @@ export declare function containsDeactivation(messages: readonly {
  * commands, and the plain-text deactivation listener.
  */
 export declare function apply(ctx: Context): void;
-//# sourceMappingURL=index.d.ts.map

@@ -3,7 +3,7 @@
  * `hooks/ponytail-instructions.js`, so the injected text is byte-for-byte the
  * same ruleset every other host emits, filtered to the active intensity.
  *
- * @module @mengyuly/dsh-ponytail
+ * @module @deepseek-ai/dsh-ponytail
  */
 import { type PonytailRuntimeMode } from './modes.ts';
 /**
@@ -21,4 +21,3 @@ export declare function fallbackInstructions(mode: PonytailRuntimeMode): string;
  * Returns an empty string for `off` (ponytail contributes nothing).
  */
 export declare function getPonytailInstructions(mode: PonytailRuntimeMode | null | undefined): string;
-//# sourceMappingURL=instructions.d.ts.map

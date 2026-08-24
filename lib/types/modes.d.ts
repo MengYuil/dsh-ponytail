@@ -5,7 +5,7 @@
  * level via the `/ponytail` command is session-scoped and lives in an
  * in-memory, per-agent {@link ModeStore}.
  *
- * @module @mengyuly/dsh-ponytail
+ * @module @deepseek-ai/dsh-ponytail
  */
 /** One settable runtime intensity. `review` is command-only and never a default. */
 export type PonytailRuntimeMode = 'off' | 'lite' | 'full' | 'ultra';
@@ -32,6 +32,28 @@ export declare function configPath(env?: NodeJS.ProcessEnv): string;
  */
 export declare function resolveDefaultMode(envMode: unknown, configText: string | undefined): PonytailRuntimeMode;
 /**
+ * One configuration problem worth surfacing exactly once. `read` covers
+ * permission/IO failures, `json` malformed documents, `shape` a root that is
+ * not an object, and `value` a `defaultMode` that is not a runtime level.
+ */
+export type DefaultModeIssueKind = 'read' | 'json' | 'shape' | 'value';
+export interface DefaultModeIssue {
+    readonly kind: DefaultModeIssueKind;
+    readonly detail: string;
+}
+/** The resolved default plus the first config problem found, if any. */
+export interface DefaultModeResolution {
+    readonly mode: PonytailRuntimeMode;
+    readonly issue?: DefaultModeIssue;
+}
+/**
+ * Read the configured default with diagnostics: environment variable first,
+ * then the config file, then `full`. A missing config file is normal and
+ * yields no issue; a broken one yields the fallback mode plus one issue for
+ * the caller to warn about once.
+ */
+export declare function readDefaultModeInfo(env?: NodeJS.ProcessEnv): DefaultModeResolution;
+/**
  * Read the configured default for this host: environment variable first, then
  * the config file, then `full`.
  */
@@ -39,6 +61,8 @@ export declare function readDefaultMode(env?: NodeJS.ProcessEnv): PonytailRuntim
 /**
  * Persist a new default level to the config file, preserving other fields.
  * Returns the normalized mode, or `null` when the value is not a runtime mode.
+ * Throws when the write itself fails, so callers never report success for a
+ * file that was not written.
  */
 export declare function writeDefaultMode(mode: unknown, env?: NodeJS.ProcessEnv): PonytailRuntimeMode | null;
 /**
@@ -56,14 +80,26 @@ export declare class ModeStore {
     clear(agentId: string): void;
 }
 /**
- * Compile `PONYTAIL_SUBAGENT_MATCHER` into a case-insensitive regex, or `null`
- * — for "no matcher" and for invalid patterns, both of which mean the ruleset
- * applies to every agent (fail open, like upstream).
+ * Compile `PONYTAIL_SUBAGENT_MATCHER` into a case-insensitive regex. An unset
+ * matcher yields `null`; an invalid pattern stays fail-open (every agent gets
+ * the ruleset) but is reported so the caller can warn exactly once.
  */
-export declare function compileSubagentMatcher(raw: string | undefined): RegExp | null;
+export declare function compileSubagentMatcher(raw: string | undefined): {
+    matcher: RegExp | null;
+    invalid: boolean;
+};
+/**
+ * The stable per-session identity backing every mode override. DSH's `Agent`
+ * type documents `id` as "the single identity shared with session", so the
+ * agent id IS the SessionId: one entry per live session, never shared between
+ * two sessions, and stable across the session's lifetime. Centralized so the
+ * key choice lives in exactly one place.
+ */
+export declare function sessionKey(agent: {
+    readonly id: string;
+}): string;
 /** Whether a session is a subagent child (origin, or any delegation depth with no origin). */
 export declare function isSubagentSession(header: {
     origin?: 'subagent';
     delegationDepth?: number;
 }): boolean;
-//# sourceMappingURL=modes.d.ts.map
