@@ -38,6 +38,8 @@
  * `packages/community/ponytail`. Fails loudly — never silently reuses an old
  * `lib/`.
  */
+// nosemgrep: node-child-process — dev-only build/verification tooling; excluded from the npm tarball, no install lifecycle hook, unreachable from runtime (see SECURITY.md)
+// NOSONAR: dev-only build/verification tooling (see SECURITY.md)
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

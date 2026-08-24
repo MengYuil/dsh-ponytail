@@ -22,6 +22,8 @@
  *
  * Everything here is stdlib-only and deliberately small.
  */
+// nosemgrep: node-child-process — dev-only build/verification tooling; excluded from the npm tarball, no install lifecycle hook, unreachable from runtime (see SECURITY.md)
+// NOSONAR: dev-only build/verification tooling (see SECURITY.md)
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
