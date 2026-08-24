@@ -29,6 +29,8 @@ import {
   ModeStore,
   normalizeRuntimeMode,
   readDefaultMode,
+  readDefaultModeInfo,
+  sessionKey,
   writeDefaultMode,
   type PonytailRuntimeMode,
 } from './modes.ts'
@@ -67,7 +69,7 @@ interface CommandDeps {
 
 /** Mode visible to one agent: its session override, else the configured default. */
 function modeFor(deps: CommandDeps, agent: Agent): PonytailRuntimeMode {
-  return deps.store.modeFor(String(agent.id), deps.defaultMode())
+  return deps.store.modeFor(sessionKey(agent), deps.defaultMode())
 }
 
 /**
@@ -96,29 +98,68 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
   commandCtx.commands.register({
     name: 'ponytail',
     description: 'Set or show Ponytail lazy senior dev intensity',
-    input: { hint: '[lite|full|ultra|off|default <mode>]' },
+    input: { hint: '[status|default <mode>|lite|full|ultra|off]' },
     handler: ({ agent, rawInput }): CommandResult => {
       const input = rawInput.trim().toLowerCase()
       const [head, ...rest] = input.split(/\s+/).filter(Boolean)
       const partsHead = head ?? ''
 
       // `/ponytail default <mode>` persists the default for future sessions.
+      // The env var still outranks the saved value, so the effective default
+      // is recomputed after the write instead of trusting the saved one.
       if (partsHead === 'default') {
-        const written = writeDefaultMode(rest[0])
+        let written: PonytailRuntimeMode | null
+        try {
+          written = writeDefaultMode(rest[0])
+        } catch (error) {
+          return { kind: 'error', text: `Failed to save default: ${(error as Error).message}` }
+        }
         if (!written) {
           return { kind: 'error', text: 'Usage: /ponytail default [lite|full|ultra|off]' }
         }
-        deps.setDefault(written)
+        const effective = readDefaultMode()
+        deps.setDefault(effective)
+        if (written === effective) {
+          agent.steer(createUserMessage({
+            content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — new sessions start in ${written}.` }],
+            source: { kind: 'plugin', plugin: name },
+          }))
+          return { kind: 'success', text: `Ponytail default set — new sessions start in ${written}.` }
+        }
         agent.steer(createUserMessage({
-          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — new sessions start in ${written}.` }],
+          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (PONYTAIL_DEFAULT_MODE).` }],
           source: { kind: 'plugin', plugin: name },
         }))
-        return { kind: 'success', text: `Ponyytail default set — new sessions start in ${written}.` }
+        return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by PONYTAIL_DEFAULT_MODE.` }
       }
 
-      // Bare `/ponytail` reports the mode currently in force.
+      // `/ponytail status` is a pure query: report, never modify.
+      if (input === 'status') {
+        const current = modeFor(deps, agent)
+        return { kind: 'success', text: `Ponytail mode: ${current}. Use /ponytail lite|full|ultra|off.` }
+      }
+
+      // Bare `/ponytail` reports the mode in force; when the session is off it
+      // re-enables to the effective default (or `full` when that is off too).
       if (input === '') {
         const current = modeFor(deps, agent)
+        const effectiveDefault = deps.defaultMode()
+        if (current === 'off') {
+          if (effectiveDefault === 'off') {
+            deps.store.set(sessionKey(agent), 'full')
+            agent.steer(createUserMessage({
+              content: [{ type: 'text', text: 'PONYTAIL MODE CHANGED — level: full' }],
+              source: { kind: 'plugin', plugin: name },
+            }))
+            return { kind: 'success', text: 'Ponytail re-enabled at full (the effective default is off).' }
+          }
+          deps.store.clear(sessionKey(agent))
+          agent.steer(createUserMessage({
+            content: [{ type: 'text', text: `PONYTAIL MODE ACTIVE — level: ${effectiveDefault}` }],
+            source: { kind: 'plugin', plugin: name },
+          }))
+          return { kind: 'success', text: `Ponytail re-enabled. Effective default: ${effectiveDefault}.` }
+        }
         agent.steer(createUserMessage({
           content: [{ type: 'text', text: `PONYTAIL MODE ACTIVE — level: ${current}` }],
           source: { kind: 'plugin', plugin: name },
@@ -128,9 +169,9 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
 
       const mode = normalizeRuntimeMode(input)
       if (!mode) {
-        return { kind: 'error', text: 'Usage: /ponytail [lite|full|ultra|off]' }
+        return { kind: 'error', text: 'Usage: /ponytail [status|default <mode>|lite|full|ultra|off]' }
       }
-      deps.store.set(String(agent.id), mode)
+      deps.store.set(sessionKey(agent), mode)
       agent.steer(createUserMessage({
         content: [{ type: 'text', text: modeNotice(mode) }],
         source: { kind: 'plugin', plugin: name },
@@ -166,21 +207,57 @@ function descriptionFor(skill: string): string {
  * commands, and the plain-text deactivation listener.
  */
 export function apply(ctx: Context): void {
-  // Resolved once per process; `/ponytail default` refreshes it via setDefault.
+  // Process-level effective default, resolved lazily so a broken config warns
+  // once (not per request); `/ponytail default` and the watcher refresh it.
   let defaultMode: PonytailRuntimeMode | null = null
-  const readDefault = (): PonytailRuntimeMode => (defaultMode ??= readDefaultMode())
+  const warned = new Set<string>()
+  const warnOnce = (key: string, message: string): void => {
+    if (warned.has(key)) return
+    warned.add(key)
+    ctx.logger.warn(`[ponytail] ${message}`)
+  }
+  const refreshDefault = (): PonytailRuntimeMode => {
+    const resolution = readDefaultModeInfo()
+    if (resolution.issue) {
+      warnOnce(`default:${resolution.issue.kind}`, `${resolution.issue.detail}; using ${resolution.mode}`)
+    }
+    defaultMode = resolution.mode
+    return defaultMode
+  }
+  const readDefault = (): PonytailRuntimeMode => (defaultMode ?? refreshDefault())
   const setDefault = (mode: PonytailRuntimeMode): void => { defaultMode = mode }
 
   const store = new ModeStore()
-  const matcher = compileSubagentMatcher(process.env.PONYTAIL_SUBAGENT_MATCHER)
+  const matcherResult = compileSubagentMatcher(process.env.PONYTAIL_SUBAGENT_MATCHER)
+  const matcher = matcherResult.matcher
+  if (matcherResult.invalid) {
+    warnOnce(
+      'matcher:invalid',
+      'PONYTAIL_SUBAGENT_MATCHER is not a valid regular expression; ignoring it (fail-open).',
+    )
+  }
 
   // Hot-reload the config-file default: edits apply to sessions without an
-  // override on their next request, no restart. Env-var changes still require
-  // one, since the environment is fixed once the process starts.
+  // override on their next request, no restart. A transiently invalid file
+  // keeps the last known good default instead of snapping back to `full`.
+  // Env-var changes still require a restart, since the environment is fixed
+  // once the process starts.
   const configFile = configPath()
-  const onConfigChange = (): void => { defaultMode = readDefaultMode() }
+  const onConfigChange = (): void => {
+    const resolution = readDefaultModeInfo()
+    if (resolution.issue) {
+      warnOnce(`config:${resolution.issue.kind}`, `${resolution.issue.detail}; keeping the previous default`)
+      return
+    }
+    defaultMode = resolution.mode
+  }
   watchFile(configFile, { interval: 1000 }, onConfigChange).unref()
-  ctx.effect(() => () => unwatchFile(configFile, onConfigChange), 'ponytail: config hot reload')
+  ctx.effect(() => () => { unwatchFile(configFile, onConfigChange) }, 'ponytail: config hot reload')
+
+  // Session-scoped overrides live only as long as their session: an agent's
+  // disposal releases its entry so a long-running host never accumulates
+  // stale keys.
+  ctx.on('agent/disposed', ({ agent }) => { store.clear(sessionKey(agent)) })
 
   // Always-on ruleset for the session's own agent. The built-in spawn subagent
   // tool runs fresh, isolated children that do not carry the persona; the
@@ -194,7 +271,7 @@ export function apply(ctx: Context): void {
         const preset = agent.session.header.agentPreset
         if (preset && !matcher.test(preset)) return ''
       }
-      const mode = agent ? store.modeFor(String(agent.id), readDefault()) : readDefault()
+      const mode = agent ? store.modeFor(sessionKey(agent), readDefault()) : readDefault()
       return getPonytailInstructions(mode)
     },
   })
@@ -214,7 +291,7 @@ export function apply(ctx: Context): void {
   // whole message only, before the step's request derives.
   ctx.on('agent/pre-step', async (payload, next): Promise<PreStepDecision> => {
     const deactivated = containsDeactivation(payload.messages)
-    if (deactivated) store.set(String(payload.agent.id), 'off')
+    if (deactivated) store.set(sessionKey(payload.agent), 'off')
     const decision = await next()
     if (deactivated && decision.kind === 'enter') {
       return {

@@ -347,7 +347,9 @@ You can also load any of these with the \`skill\` tool.
 
 ## Deactivate
 
-Say "stop ponytail" or "normal mode". Resume anytime with \`/ponytail\`.
+Say "stop ponytail" or "normal mode". Resume anytime with \`/ponytail\` —
+it re-enables at the effective default (or \`full\` when that is off too).
+\`/ponytail status\` only shows the current level, never changes it.
 \`/ponytail off\` also works. Level is session-scoped; a new session starts
 from the configured default.
 
@@ -367,7 +369,8 @@ export PONYTAIL_DEFAULT_MODE=ultra
 
 Set \`"off"\` to disable auto-activation on session start, activate manually
 with \`/ponytail\` when wanted. \`/ponytail default <mode>\` persists a new
-default from inside a session.
+default to the config file; an exported \`PONYTAIL_DEFAULT_MODE\` still
+outranks the saved value for new sessions.
 
 Resolution: env var > config file > \`full\`.
 

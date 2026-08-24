@@ -8,7 +8,7 @@
  * @module @mengyuly/dsh-ponytail
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -44,7 +44,8 @@ export function normalizeRuntimeMode(mode: unknown): PonytailRuntimeMode | null 
  */
 export function isDeactivationCommand(text: unknown): boolean {
   const raw = typeof text === 'string' ? text : ''
-  const normalized = raw.trim().toLowerCase().replace(/[.!?\s]+$/, '')
+  // ASCII and CJK sentence enders are all ignorable trailing punctuation.
+  const normalized = raw.trim().toLowerCase().replace(/[\s.!?。？！]+$/, '')
   return normalized === 'stop ponytail' || normalized === 'normal mode'
 }
 
@@ -88,23 +89,83 @@ export function resolveDefaultMode(
 }
 
 /**
+ * One configuration problem worth surfacing exactly once. `read` covers
+ * permission/IO failures, `json` malformed documents, `shape` a root that is
+ * not an object, and `value` a `defaultMode` that is not a runtime level.
+ */
+export type DefaultModeIssueKind = 'read' | 'json' | 'shape' | 'value'
+
+export interface DefaultModeIssue {
+  readonly kind: DefaultModeIssueKind
+  readonly detail: string
+}
+
+/** The resolved default plus the first config problem found, if any. */
+export interface DefaultModeResolution {
+  readonly mode: PonytailRuntimeMode
+  readonly issue?: DefaultModeIssue
+}
+
+/**
+ * Read the configured default with diagnostics: environment variable first,
+ * then the config file, then `full`. A missing config file is normal and
+ * yields no issue; a broken one yields the fallback mode plus one issue for
+ * the caller to warn about once.
+ */
+export function readDefaultModeInfo(env: NodeJS.ProcessEnv = process.env): DefaultModeResolution {
+  const path = configPath(env)
+  const envMode = normalizeRuntimeMode(env.PONYTAIL_DEFAULT_MODE)
+
+  let configText: string | undefined
+  try {
+    configText = readFileSync(path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      // No config file is the normal state.
+      return { mode: envMode ?? DEFAULT_MODE }
+    }
+    return {
+      mode: envMode ?? DEFAULT_MODE,
+      issue: { kind: 'read', detail: `${path}: ${(error as Error).message}` },
+    }
+  }
+
+  // The config is inspected even when the env wins, so a broken file still
+  // surfaces one warning instead of being silently ignored.
+  let configIssue: DefaultModeIssue | undefined
+  let fromConfig: PonytailRuntimeMode | null = null
+  try {
+    const parsed: unknown = JSON.parse(stripBom(configText))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      configIssue = { kind: 'shape', detail: `${path}: root must be a JSON object` }
+    } else if ('defaultMode' in parsed) {
+      fromConfig = normalizeRuntimeMode((parsed as { defaultMode?: unknown }).defaultMode)
+      if (!fromConfig) {
+        configIssue = { kind: 'value', detail: `${path}: defaultMode is not lite|full|ultra|off` }
+      }
+    }
+  } catch (error) {
+    configIssue = { kind: 'json', detail: `${path}: ${(error as Error).message}` }
+  }
+
+  if (envMode) return { mode: envMode, ...(configIssue ? { issue: configIssue } : {}) }
+  if (configIssue) return { mode: DEFAULT_MODE, issue: configIssue }
+  return { mode: fromConfig ?? DEFAULT_MODE }
+}
+
+/**
  * Read the configured default for this host: environment variable first, then
  * the config file, then `full`.
  */
 export function readDefaultMode(env: NodeJS.ProcessEnv = process.env): PonytailRuntimeMode {
-  const path = configPath(env)
-  let configText: string | undefined
-  try {
-    configText = readFileSync(path, 'utf8')
-  } catch {
-    configText = undefined
-  }
-  return resolveDefaultMode(env.PONYTAIL_DEFAULT_MODE, configText)
+  return readDefaultModeInfo(env).mode
 }
 
 /**
  * Persist a new default level to the config file, preserving other fields.
  * Returns the normalized mode, or `null` when the value is not a runtime mode.
+ * Throws when the write itself fails, so callers never report success for a
+ * file that was not written.
  */
 export function writeDefaultMode(mode: unknown, env: NodeJS.ProcessEnv = process.env): PonytailRuntimeMode | null {
   const normalized = normalizeRuntimeMode(mode)
@@ -119,8 +180,23 @@ export function writeDefaultMode(mode: unknown, env: NodeJS.ProcessEnv = process
     // Missing or invalid config — start a fresh document.
   }
   config.defaultMode = normalized
+  const text = `${JSON.stringify(config, null, 2)}\n`
+
   mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
+  // Atomic replace: write a sibling temp file, then rename it over the target
+  // so a crash mid-write never leaves a truncated config.json. The temp lives
+  // in the target directory to stay on one filesystem (rename must not copy).
+  // renameSync replaces existing files on POSIX and, via replace-if-exists
+  // semantics, on Windows too; the pid+timestamp temp name keeps concurrent
+  // writers from colliding on one temp path.
+  const temp = join(dirname(path), `.config-${process.pid}-${Date.now()}.tmp`)
+  try {
+    writeFileSync(temp, text, 'utf8')
+    renameSync(temp, path)
+  } catch (error) {
+    try { unlinkSync(temp) } catch { /* temp never created or already moved */ }
+    throw new Error(`failed to write ${path}: ${(error as Error).message}`)
+  }
   return normalized
 }
 
@@ -149,17 +225,28 @@ export class ModeStore {
 }
 
 /**
- * Compile `PONYTAIL_SUBAGENT_MATCHER` into a case-insensitive regex, or `null`
- * — for "no matcher" and for invalid patterns, both of which mean the ruleset
- * applies to every agent (fail open, like upstream).
+ * Compile `PONYTAIL_SUBAGENT_MATCHER` into a case-insensitive regex. An unset
+ * matcher yields `null`; an invalid pattern stays fail-open (every agent gets
+ * the ruleset) but is reported so the caller can warn exactly once.
  */
-export function compileSubagentMatcher(raw: string | undefined): RegExp | null {
-  if (!raw) return null
+export function compileSubagentMatcher(raw: string | undefined): { matcher: RegExp | null; invalid: boolean } {
+  if (!raw) return { matcher: null, invalid: false }
   try {
-    return new RegExp(raw, 'i')
+    return { matcher: new RegExp(raw, 'i'), invalid: false }
   } catch {
-    return null
+    return { matcher: null, invalid: true }
   }
+}
+
+/**
+ * The stable per-session identity backing every mode override. DSH's `Agent`
+ * type documents `id` as "the single identity shared with session", so the
+ * agent id IS the SessionId: one entry per live session, never shared between
+ * two sessions, and stable across the session's lifetime. Centralized so the
+ * key choice lives in exactly one place.
+ */
+export function sessionKey(agent: { readonly id: string }): string {
+  return agent.id
 }
 
 /** Whether a session is a subagent child (origin, or any delegation depth with no origin). */

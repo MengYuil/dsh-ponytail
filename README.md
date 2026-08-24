@@ -16,7 +16,7 @@ dsh plugin --profile web add link:$(pwd)
 dsh plugin --profile web add github:MengYuil/dsh-ponytail
 
 # 方式三：Release 打包件（先下 tgz）
-dsh plugin --profile web add file:./mengyuly-dsh-ponytail-0.1.2.tgz
+dsh plugin --profile web add file:./mengyuly-dsh-ponytail-0.1.3.tgz
 
 # 方式四：npm
 dsh plugin --profile web add @mengyuly/dsh-ponytail
@@ -31,17 +31,21 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 ## 功能
 
 - **核心模式** `/ponytail` — 每轮注入「懒惰阶梯」：能不做就不做（YAGNI）→ 代码库已有 → 标准库 → 平台原生 → 已装依赖 → 一行能解决 → 才是最少代码。
-  - `full`（默认）/ `lite` / `ultra` / `off` 四档，会话级。
-  - `/ponytail default <mode>` 持久化默认值。
+  - `full`（默认）/ `lite` / `ultra` / `off` 四档，**会话级**（会话 A 的档位不影响会话 B，会话结束自动释放）。
+  - 裸 `/ponytail`：已启用时只报告；会话为 `off` 时恢复到有效默认档（有效默认也是 `off` 则回 `full`）。
+  - `/ponytail status`：只查询、永不修改。
+  - `/ponytail lite|full|ultra|off`：显式切换。
+  - `/ponytail default <mode>`：持久化默认值到配置文件（环境变量仍优先）。
 - **一次性技能**（用哪个载哪个，不进常驻 prompt）：
   - `/ponytail-review` — 针对最近改动找过度工程，一行一条：位置 + 删什么 + 替代。
   - `/ponytail-audit` — 全仓库过度工程审计，排序清单。
   - `/ponytail-debt` — 收割所有 `ponytail:` 注释成债务账本。
   - `/ponytail-gain` — 收益计分板（更少代码/更省成本/更快）。
   - `/ponytail-help` — 参考卡。
-- **停用**：说 `stop ponytail` 或 `normal mode`；随时 `/ponytail` 恢复。
-- **默认值**：环境变量 `PONYTAIL_DEFAULT_MODE` > `~/.config/ponytail/config.json` 的 `{"defaultMode": "lite"}` > `full`。
+- **停用**：说 `stop ponytail` 或 `normal mode`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
+- **默认值**：环境变量 `PONYTAIL_DEFAULT_MODE` > `~/.config/ponytail/config.json`（Windows：`%APPDATA%\ponytail\config.json`）的 `{"defaultMode": "lite"}` > `full`。`/ponytail default` 写入的是配置文件，**环境变量设置且合法时仍压过保存值**（命令会分别提示 saved 与 effective）。
 - **子代理**：常驻段作用于当前会话自身；DSH 内置 `subagent` 工具跑的是隔离的全新子代理、不继承本 persona。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）用于在 harness 会下发给子代理的场景里排除指定子代理；缺省全部注入。
+- **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警；热更新遇到临时非法内容保留上一个合法默认值。
 
 ## 效率
 
@@ -55,6 +59,11 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
 - 配置文件的默认档位热更新（fs 轮询 ~1s，作用于无覆盖的会话）；环境变量改动仍需重启。
 - 发行 `lib/` 是预编译产物；改源码请回主仓重建后同步。
+
+## 测试环境与权威关系
+
+- 用 Node.js **v24.16.0** 在本机 deepseek-harness checkout 上测试（`tsc -b` + `tsdown` host 构建通过）。与之精确匹配的已发布 DSH/Cordis 版本**待确认**——checkout 是预发布工作树，非发布 tag。
+- 权威源码在 deepseek-harness monorepo 的 `packages/community/ponytail`（`@deepseek-ai/dsh-ponytail`）；本仓库（`@mengyuly/dsh-ponytail`）是**发行镜像**：随包附构建产物，`scripts/build.sh` 只做源码类型检查，不是独立真源。
 
 ## 许可
 
