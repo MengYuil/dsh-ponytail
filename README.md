@@ -28,7 +28,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 
 > `lib/index.js` 是自包含 bundle（已内联 `dsh-llm` / `dsh-skill`），运行时只依赖 `@deepseek-ai/cordis` peer（registry 有 4.0.1），所以 GitHub / tgz / npm 三种安装方式都不需要 dsh 源码树。
 
-> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`，改源码后回主仓重建，再把 `lib/` 同步回本仓库即可发版。本地改 `src/` 想快速验证编译，可用 `DSH_CHECKOUT=/path/to/deepseek-harness ./scripts/build.sh`（只做类型检查）。
+> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`；改源码后用 `DSH_CHECKOUT=/path/to/deepseek-harness npm run sync:dist` 重建并同步完整 `lib/`（见下「发行维护」）。
 
 ## 功能
 
