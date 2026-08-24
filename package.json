@@ -1,7 +1,7 @@
 {
   "name": "@mengyuly/dsh-ponytail",
   "description": "Lazy senior dev mode for DeepSeek Harness: always-on minimal-code ruleset, intensity switching, and short review/audit/debt/gain/help skills",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publishConfig": {
     "access": "public"
   },
@@ -25,6 +25,7 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "dist-provenance.json",
     "CHANGELOG.md",
     "lib/index.js",
     "lib/invariant.js",
@@ -49,6 +50,7 @@
     "sync:dist": "node scripts/sync-dist.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:pack": "node scripts/verify-pack.mjs",
-    "test:consumer": "node scripts/test-consumer.mjs"
+    "test:consumer": "node scripts/test-consumer.mjs",
+    "test:regressions": "node scripts/test-regressions.mjs"
   }
 }

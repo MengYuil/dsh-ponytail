@@ -14,29 +14,32 @@
  * The `modes` subpath is intentionally NOT imported: package.json does not
  * declare a public `./modes` export, and this test must not expand the API.
  *
- * Exits non-zero when tsc reports anything.
+ * tsc is started via `process.execPath` + the TypeScript CLI JS entry
+ * (`typescript/lib/tsc.js`) — the cross-platform way to invoke it without a
+ * `.cmd` wrapper or a shell.
+ *
+ * Exits non-zero when tsc reports anything. Temporary files are removed
+ * unless `PONYTAIL_VERIFY_KEEP_TEMP=1` is set.
  */
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runNpm, runNode, tempWork } from './lib/run-command.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-const work = mkdtempSync(join(tmpdir(), 'ponytail-consumer-'))
-const npm = (args, cwd) => spawnSync('npm', args, { cwd, encoding: 'utf8' })
+const work = tempWork('ponytail-consumer-')
 
 try {
-  const packed = npm(['pack', '--json', '--pack-destination', work], repoRoot)
-  if (packed.status !== 0) throw new Error(`npm pack failed: ${(packed.stderr ?? '').slice(-400)}`)
-  const tgz = join(work, JSON.parse(packed.stdout)[0].filename)
+  const packed = runNpm(['pack', '--json', '--pack-destination', work.dir], repoRoot)
+  const packedJson = JSON.parse(packed.stdout)
+  const entry0 = Array.isArray(packedJson) ? packedJson[0] : packedJson
+  const tgz = isAbsolute(entry0.filename) ? entry0.filename : join(work.dir, entry0.filename)
 
-  const install = npm(['install', '--no-save', '--no-audit', '--no-fund', tgz,
-    '@deepseek-ai/cordis@^4.0.1', 'typescript@^5.9.3', '@types/node@^24'], work)
-  if (install.status !== 0) throw new Error(`npm install failed: ${(install.stderr ?? '').slice(-400)}`)
+  runNpm(['install', tgz,
+    '@deepseek-ai/cordis@^4.0.1', 'typescript@^5.9.3', '@types/node@^24'], work.dir)
 
-  writeFileSync(join(work, 'consumer.mts'), [
+  writeFileSync(join(work.dir, 'consumer.mts'), [
     `import { apply, containsDeactivation, inject, messageText, name } from '${pkg.name}';`,
     `const entry: string = name;`,
     `const deps: string[] = inject;`,
@@ -47,7 +50,7 @@ try {
     '',
   ].join('\n'))
 
-  writeFileSync(join(work, 'tsconfig.json'), JSON.stringify({
+  writeFileSync(join(work.dir, 'tsconfig.json'), JSON.stringify({
     compilerOptions: {
       target: 'es2024',
       module: 'nodenext',
@@ -60,16 +63,9 @@ try {
     include: ['consumer.mts'],
   }, null, 2))
 
-  const tsc = spawnSync(join(work, 'node_modules', '.bin', 'tsc'), ['-p', join(work, 'tsconfig.json')], {
-    cwd: work,
-    shell: process.platform === 'win32',
-    encoding: 'utf8',
-  })
-  if (tsc.status !== 0) {
-    console.error(`test-consumer: tsc --noEmit FAILED\n${tsc.stdout}${tsc.stderr}`)
-    process.exit(1)
-  }
-  console.log(`test-consumer: OK (NodeNext, skipLibCheck:false, against the packed tarball of ${pkg.name}@${pkg.version})`)
+  const tscEntry = join(work.dir, 'node_modules', 'typescript', 'lib', 'tsc.js')
+  runNode(tscEntry, ['-p', join(work.dir, 'tsconfig.json')], work.dir)
+  console.log(`test-consumer: OK\n(NodeNext, skipLibCheck:false, packed tarball of ${pkg.name}@${pkg.version})`)
 } finally {
-  rmSync(work, { recursive: true, force: true })
+  work.cleanup()
 }

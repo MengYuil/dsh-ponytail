@@ -62,8 +62,8 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 
 ## 测试环境与权威关系
 
-- 用 Node.js **v24.16.0** 在本机 deepseek-harness checkout 上测试（`tsc -b` + `tsdown` host 构建通过）。与之精确匹配的已发布 DSH/Cordis 版本**待确认**——checkout 是预发布工作树，非发布 tag。
-- 权威源码在 deepseek-harness monorepo 的 `packages/community/ponytail`（`@deepseek-ai/dsh-ponytail`）；本仓库（`@mengyuly/dsh-ponytail`）是**发行镜像**：随包附构建产物，`scripts/build.sh` 只做源码类型检查，不是独立真源。
+- 本机（Linux，Node.js **v24.16.0**，deepseek-harness checkout 构建）与 CI 矩阵（**ubuntu-latest + windows-latest**，Node 24）上验证通过。与之精确匹配的已发布 DSH/Cordis 版本**待确认**——checkout 是预发布工作树，非发布 tag。
+- 权威源码在 deepseek-harness monorepo 的 `packages/community/ponytail`（`@deepseek-ai/dsh-ponytail`）；本仓库（`@mengyuly/dsh-ponytail`）是**发行镜像**：随包附构建产物，不是独立真源。
 
 ## 发行维护
 
@@ -72,14 +72,17 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   ```bash
   DSH_CHECKOUT=/path/to/deepseek-harness npm run sync:dist
   ```
-  该命令在权威 checkout 中重建（`tsc` 生成声明 + `tsdown` 打包运行时），同步 `lib/index.js`、`lib/invariant.js`、`lib/types/*.d.ts`，并自动执行一致性校验；`lib/` 有变化时会提示提交。
-- **验证命令**：
+  该命令在权威 checkout 中重建（`tsc` 生成声明 + `tsdown` 打包运行时），同步 `lib/index.js`、`lib/invariant.js`、`lib/types/*.d.ts`，生成 `dist-provenance.json`（记录权威 checkout 的真实 commit SHA 与工具链版本），并自动执行一致性校验；产物有变化时会提示提交。**完整构建一致性由本命令在发布流程中完成——发行镜像 CI 不会重新构建权威 monorepo。**
+- **验证命令**（Linux / Windows 通用，跨平台进程调用见 `scripts/lib/run-command.mjs`）：
   ```bash
-  npm run verify:dist      # 声明↔src↔运行时导出一致性、关键签名、无悬空 source map
-  npm run verify:pack      # tarball 内容、版本一致、仅 peer 安装后 smoke
+  npm run verify:dist      # 静态一致性：src/d.ts 导出一致、关键签名、主入口运行时导出、无 source map、provenance 合法
+  npm run verify:pack      # tarball 内容/版本、安装后 smoke（如实报告实际安装的依赖）
   npm run test:consumer    # NodeNext + skipLibCheck:false 的声明消费测试（对打包产物）
+  npm run test:regressions # 验证工具自身的回归测试（source map 策略、provenance、spawn 诊断）
   ```
-- CI 对已提交产物执行上述全部校验；src 新增导出而 d.ts 未同步、或产物漂移都会失败。
+- **CI 能力边界（如实）**：CI（ubuntu + windows 矩阵）执行上述静态验证与打包/消费测试，但**不重新构建权威 monorepo**；`verify:dist` 是导出表面/签名/运行时导出的一致性检查，**不是**与权威构建的字节级等价证明——后者由 `sync:dist` 在发布流程中保证。
+- `dist-provenance.json` 随 npm 包发布，便于审计构建来源。
+- 本机验证时若 `npm_execpath` 指向其他包管理器（如 pnpm/yarn shim），脚本会自动回退到 PATH 上的 `npm`；临时目录失败时保留需设 `PONYTAIL_VERIFY_KEEP_TEMP=1`。
 
 ## 许可
 

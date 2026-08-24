@@ -6,15 +6,17 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Committed artifacts must be clean (no drift in lib/)
-        run: git diff --exit-code -- lib
-      - name: Bundle must not leave dsh core external (self-contained install)
+          node-version: 24
+      - name: "[${{ matrix.os }}] Bundle must not leave dsh core external (self-contained install)"
         run: |
           node -e "
             const fs = require('fs');
@@ -24,12 +26,14 @@ jobs:
             if (bad.length) throw new Error('bundle still imports dsh core at runtime: ' + bad.join(', '));
             console.log('externals:', externals.length ? externals.join(', ') : '(none)');
           "
-      - name: Manifest declares the bundle patch
+      - name: "[${{ matrix.os }}] Manifest declares the bundle patch"
         run: |
           node -e "const p=require('./package.json'); if (!p.dsh?.bundle?.patch) throw new Error('dsh.bundle.patch missing'); console.log('manifest ok')"
-      - name: Dist consistency (declarations, src↔d.ts drift, runtime exports, source maps)
+      - name: "[${{ matrix.os }}] Static dist consistency (src/d.ts exports, signatures, runtime exports, no source maps, provenance)"
         run: npm run verify:dist
-      - name: Pack verification (tarball contents, version match, installed smoke)
+      - name: "[${{ matrix.os }}] Verification tooling regression tests"
+        run: npm run test:regressions
+      - name: "[${{ matrix.os }}] Pack verification (tarball contents, version match, installed smoke)"
         run: npm run verify:pack
-      - name: TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)
+      - name: "[${{ matrix.os }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: npm run test:consumer

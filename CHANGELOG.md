@@ -3,6 +3,49 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.5] - 2026-08-24
+
+### Fixed
+
+- Windows 下验证脚本无法启动 `npm.cmd`：`spawnSync('npm', …)` 在 Windows 上对
+  `.cmd` 无效（`status === null`）。现在统一走 `process.execPath + npm_execpath`
+  （npm script 环境内为 npm 自身 CLI，跨平台可靠），并在 `npm_execpath` 缺失或
+  指向其他包管理器（pnpm/yarn/bun shim）时回退到 `npm`/`npm.cmd`。
+- `spawnSync` 启动失败时错误信息丢失：统一 `formatSpawnFailure` 输出 command、
+  args、cwd、status、signal、`result.error.message`、stdout/stderr 尾部
+  （各 4KB 上限）；`status === null` 明确判为启动失败或被信号终止，不再显示为
+  普通退出码。
+- `verify-dist` 不再有未定义 `existsSync` 的潜伏分支：改为**直接拒绝**任何
+  `sourceMappingURL`（与 v0.1.4 起 `declarationMap: false` 的发布策略一致），
+  并新增回归测试证明声明文件重现 source map 时验证会明确失败。
+- 删除 CI 中 checkout 后立即执行的无效 `git diff --exit-code -- lib` 步骤
+  （工作区天然干净，证明不了任何事）；防漂移表述与真实能力对齐。
+
+### Changed
+
+- `verify-pack` / `test-consumer` 共用 `scripts/lib/run-command.mjs` 跨平台进程
+  工具，不再各自维护一套 `spawnSync('npm', …)`。
+- `verify-pack` 如实报告实际安装的依赖（npm 会解析全部声明 peers，包括宿主
+  契约 peers；bundle 运行时只 import `@deepseek-ai/cordis` 由独立外链检查证明）。
+- CI 增加 Windows Runner（`windows-latest` + `ubuntu-latest` 矩阵，Node 24，
+  不允许跳过或 continue-on-error）。
+- `sync:dist` 生成 `dist-provenance.json`：`sourceCommit` 来自权威 checkout 的
+  `git rev-parse HEAD`（真实 SHA，不手工填写），工具链版本取自 checkout 的
+  node_modules，不含本机绝对路径；`verify:dist` 校验其格式。
+- tarball 现在包含 `dist-provenance.json`。
+- 产物一致性检查命名与真实能力一致：`verify:dist` 是静态一致性检查（src/d.ts
+  导出、关键签名、主入口运行时导出、无 source map、provenance），不是与权威
+  构建的字节级等价证明。
+
+### Tests
+
+- Ubuntu：verify:dist / verify:pack / test:consumer / test:regressions 全部通过。
+- Windows：CI 矩阵真实执行 verify:dist / verify:pack / test:consumer。
+- npm tarball smoke（仅声明依赖安装后加载）。
+- NodeNext + skipLibCheck:false consumer。
+- 子进程启动失败诊断回归测试。
+- declaration source map 回归测试。
+
 ## [0.1.4] - 2026-08-24
 
 ### Fixed
