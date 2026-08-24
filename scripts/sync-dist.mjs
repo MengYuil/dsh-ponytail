@@ -1,5 +1,19 @@
 #!/usr/bin/env node
 /**
+ * Development/release tooling only.
+ *
+ * This file is excluded from the npm tarball, is not referenced by the
+ * installed runtime entry, and is never executed by install lifecycle hooks.
+ * It runs only when a maintainer explicitly invokes `npm run sync:dist` with
+ * `DSH_CHECKOUT` set.
+ *
+ * The child_process capability here is the intentional, inherent local
+ * execution permission of build tooling — it is NOT part of the installed
+ * plugin runtime attack surface. Only fixed tool binaries are spawned
+ * (`tsc`, `tsdown`, the Node verify scripts, and `git` with fixed arguments);
+ * `DSH_CHECKOUT` is used solely as a working directory / path resolution
+ * target, never as shell code. See SECURITY.md.
+ *
  * Regenerate and sync the FULL dist artifact (runtime bundles + declaration
  * files) from the authoritative deepseek-harness checkout into this release
  * mirror, and record the build source in `dist-provenance.json`.

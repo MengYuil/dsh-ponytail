@@ -164,6 +164,39 @@ export async function runDistChecks() {
       failures.push(`dist-provenance.json: invalid JSON: ${error.message}`)
     }
   }
+
+  // 6. Published runtime boundary: no install-time execution, no development
+  //    scripts reachable from the shipped entry points.
+  const manifest = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+  const scripts = manifest.scripts ?? {}
+  for (const name of ['preinstall', 'install', 'postinstall']) {
+    check(scripts[name] === undefined, `package.json must not define install lifecycle script: ${name}`)
+  }
+  check(scripts.prepare === undefined, 'package.json must not define a prepare script (audit before adding)')
+
+  const allowedExportTargets = new Set(['package.json', 'cordis.patch.yml'])
+  const exportTargets = []
+  const collect = (value) => {
+    if (typeof value === 'string') exportTargets.push(value)
+    else if (value && typeof value === 'object') for (const v of Object.values(value)) collect(v)
+  }
+  collect(manifest.main)
+  collect(manifest.types)
+  collect(manifest.exports)
+  for (const target of exportTargets) {
+    const normalized = target.startsWith('./') ? target.slice(2) : target
+    check(allowedExportTargets.has(normalized) || (normalized.startsWith('lib/') && existsSync(join(repoRoot, normalized))),
+      `package entry target must live under lib/ (or be package metadata): ${target}`)
+  }
+
+  for (const [file, label] of [['lib/index.js', 'lib/index.js'], ['lib/invariant.js', 'lib/invariant.js']]) {
+    const text = readFileSync(join(repoRoot, file), 'utf8')
+    const importPattern = /(?:from|import\s*\(|require\s*\()\s*["'][^"']*scripts\//g
+    const hits = [...text.matchAll(importPattern)]
+    check(hits.length === 0, `${label} must not import from scripts/ (found ${hits.length})`)
+  }
+  const patch = readFileSync(join(repoRoot, 'cordis.patch.yml'), 'utf8')
+  check(!/scripts\//.test(patch), 'cordis.patch.yml must not reference scripts/')
   return failures
 }
 

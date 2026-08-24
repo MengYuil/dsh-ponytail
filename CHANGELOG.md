@@ -3,6 +3,21 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Security
+
+- Documented the development-only `child_process` boundary (`SECURITY.md`):
+  `scripts/**` is excluded from the npm tarball, has no install lifecycle
+  hook, and is unreachable from the installed runtime entry.
+- Added tarball checks preventing `scripts/` (and `src/`, `tests/`, `test/`,
+  `tools/`) from being published, plus a post-install assertion that the
+  installed package contains no `scripts/`.
+- Added checks preventing `preinstall` / `install` / `postinstall` /
+  `prepare` lifecycle hooks from silently invoking development tooling.
+- Classified repository-only `child_process` findings as accepted
+  development-tooling risk.
+
 ## [0.1.6] - 2026-08-24
 
 ### Fixed

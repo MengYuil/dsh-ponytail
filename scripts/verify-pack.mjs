@@ -45,7 +45,12 @@ try {
   ]
   const paths = new Set(entry.files.map(f => f.path))
   for (const file of required) check(paths.has(file), `tarball missing ${file}`)
-  check(![...paths].some(p => p.startsWith('src/')), 'tarball must not depend on src/')
+  // Development-only content must never ship in the tarball.
+  const DEV_DIRS = ['scripts', 'src', 'tests', 'test', 'tools']
+  for (const dir of DEV_DIRS) {
+    check(![...paths].some(p => p === dir || p.startsWith(`${dir}/`)),
+      `tarball must not contain development directory: ${dir}/`)
+  }
 
   // Install into a clean dir; npm will also auto-install the declared peers.
   // The bundle's runtime externals are cordis + schemastery, so both are
@@ -59,6 +64,11 @@ try {
   const peers = Object.keys(pkg.peerDependencies ?? {}).sort()
   console.log(`verify-pack: installed @deepseek-ai/* deps: ${installed.join(', ') || '(none)'}`)
   console.log(`verify-pack: declared peers: ${peers.join(', ')} (host-contract; the bundle imports @deepseek-ai/cordis + @deepseek-ai/schemastery at runtime)`)
+
+  // The installed package (name read dynamically from package.json) must not
+  // carry development scripts either.
+  check(!existsSync(join(installedPkgDir, 'scripts')),
+    `installed package contains scripts/ at ${join(installedPkgDir, 'scripts')}`)
 
   const mod = await import(pathToFileURL(join(installedPkgDir, 'lib', 'index.js')).href)
   check(mod.name === 'ponytail' && typeof mod.apply === 'function'

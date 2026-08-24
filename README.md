@@ -85,6 +85,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 - **CI 能力边界（如实）**：CI（ubuntu + windows 矩阵）执行上述静态验证与打包/消费测试，但**不重新构建权威 monorepo**；`verify:dist` 是导出表面/签名/运行时导出的一致性检查，**不是**与权威构建的字节级等价证明——后者由 `sync:dist` 在发布流程中保证。
 - `dist-provenance.json` 随 npm 包发布，便于审计构建来源。
 - 本机验证时若 `npm_execpath` 指向其他包管理器（如 pnpm/yarn shim），脚本会自动回退到 PATH 上的 `npm`；临时目录失败时保留需设 `PONYTAIL_VERIFY_KEEP_TEMP=1`。
+- **安全**：`scripts/**` 仅用于开发/构建/发行验证，**不进入 npm tarball**、无安装生命周期钩子、运行时入口不引用；`child_process` 告警属于可接受的开发工具风险。详见 [SECURITY.md](SECURITY.md)。
 
 ## 许可
 

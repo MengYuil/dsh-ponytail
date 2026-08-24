@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 /**
- * Shared cross-platform subprocess plumbing for the verification scripts.
+ * Development/release tooling only.
+ *
+ * This file is excluded from the npm tarball, is not referenced by the
+ * installed runtime entry, and is never executed by install lifecycle hooks.
+ * It runs only when a maintainer explicitly invokes the corresponding npm
+ * verification or distribution command.
+ *
+ * The child_process capability here is the intentional, inherent local
+ * execution permission of build tooling — it is NOT part of the installed
+ * plugin runtime attack surface. Arguments are passed as arrays; shell use is
+ * restricted to the Windows `npm.cmd` fallback; nothing in this module accepts
+ * plugin-runtime, model, or network input. See SECURITY.md.
  *
  * `npm` on Windows is `npm.cmd`, a cmd script — `spawnSync('npm', ...)`
  * without a shell cannot start it (spawn error, `status === null`). The
