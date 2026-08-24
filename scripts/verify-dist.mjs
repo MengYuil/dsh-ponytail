@@ -112,13 +112,34 @@ export async function runDistChecks() {
   check(/Throws when the write itself fails/.test(modes), 'modes.d.ts: writeDefaultMode must document throwing')
 
   // 4. Runtime exports of lib/index.js match the declared public surface. The
-  //    bundle's only runtime dependency is @deepseek-ai/cordis; a minimal stub
-  //    in the repo's own node_modules (gitignored, removed below) lets Node
-  //    resolve it from lib/index.js's location.
-  const stubDir = join(repoRoot, 'node_modules', '@deepseek-ai', 'cordis')
-  mkdirSync(stubDir, { recursive: true })
-  writeFileSync(join(stubDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/cordis', type: 'module', main: 'index.js' }))
-  writeFileSync(join(stubDir, 'index.js'), 'export class Service {}')
+  //    bundle's runtime dependencies are @deepseek-ai/cordis and
+  //    @deepseek-ai/schemastery (both published registry peers); minimal stubs
+  //    in the repo's own node_modules (gitignored, removed below) let Node
+  //    resolve them from lib/index.js's location. schemastery is built
+  //    eagerly at import (dsh-llm's retry-policy schemas) but never
+  //    parsed/executed by the ponytail runtime path, so a chainable stub
+  //    suffices.
+  const stubRoot = join(repoRoot, 'node_modules', '@deepseek-ai')
+  const stubs = [
+    ['cordis', 'export class Service {}'],
+    ['schemastery', [
+      'const chainable = () => new Proxy(() => {}, {',
+      '  get: (target, prop) => {',
+      "    if (prop === Symbol.toPrimitive) return () => '[schema]'",
+      "    if (prop === 'then') return undefined",
+      '    return chainable()',
+      '  },',
+      '  apply: () => chainable(),',
+      '})',
+      'export default chainable()',
+    ].join('\n')],
+  ]
+  for (const [name, source] of stubs) {
+    const dir = join(stubRoot, name)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: `@deepseek-ai/${name}`, type: 'module', main: 'index.js' }))
+    writeFileSync(join(dir, 'index.js'), source)
+  }
   try {
     const mod = await import(pathToFileURL(join(repoRoot, 'lib', 'index.js')).href)
     const runtime = new Set(Object.keys(mod))

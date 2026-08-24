@@ -48,7 +48,9 @@ try {
   check(![...paths].some(p => p.startsWith('src/')), 'tarball must not depend on src/')
 
   // Install into a clean dir; npm will also auto-install the declared peers.
-  runNpm(['install', tgz, '@deepseek-ai/cordis@^4.0.1'], work.dir)
+  // The bundle's runtime externals are cordis + schemastery, so both are
+  // installed explicitly from the registry for the smoke.
+  runNpm(['install', tgz, '@deepseek-ai/cordis@^4.0.1', '@deepseek-ai/schemastery@^3.18.0'], work.dir)
 
   // Report what actually got installed (npm auto-resolves all declared peers).
   const installedPkgDir = join(work.dir, 'node_modules', pkg.name)
@@ -56,7 +58,7 @@ try {
   const installed = existsSync(scopedDir) ? readdirSync(scopedDir).sort() : []
   const peers = Object.keys(pkg.peerDependencies ?? {}).sort()
   console.log(`verify-pack: installed @deepseek-ai/* deps: ${installed.join(', ') || '(none)'}`)
-  console.log(`verify-pack: declared peers: ${peers.join(', ')} (host-contract; the bundle imports only @deepseek-ai/cordis at runtime)`)
+  console.log(`verify-pack: declared peers: ${peers.join(', ')} (host-contract; the bundle imports @deepseek-ai/cordis + @deepseek-ai/schemastery at runtime)`)
 
   const mod = await import(pathToFileURL(join(installedPkgDir, 'lib', 'index.js')).href)
   check(mod.name === 'ponytail' && typeof mod.apply === 'function'

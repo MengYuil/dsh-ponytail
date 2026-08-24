@@ -26,7 +26,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 
 装完重启 profile 生效（`dsh web` / `dsh tui`）。装载完成后，会话技能目录里会出现 6 个 `ponytail*` 技能，发 `/ponytail-help` 立即验证。
 
-> `lib/index.js` 是自包含 bundle（已内联 `dsh-llm` / `dsh-skill`），运行时只依赖 `@deepseek-ai/cordis` peer（registry 有 4.0.1），所以 GitHub / tgz / npm 三种安装方式都不需要 dsh 源码树。
+> `lib/index.js` 是自包含 bundle（已内联 `dsh-llm` / `dsh-skill`——npm 无兼容版本），运行时依赖两个已发布的 peer：`@deepseek-ai/cordis`（4.0.1）与 `@deepseek-ai/schemastery`（3.18.x）。`schemastery` 刻意保持外置而非内联：其 schema DSL 用 `new Function` 编译 `callback` 字符串，外置后**发行产物不含任何动态代码执行**（CI 有专门检查）。GitHub / tgz / npm 三种安装方式都不需要 dsh 源码树。
 
 > 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`；改源码后用 `DSH_CHECKOUT=/path/to/deepseek-harness npm run sync:dist` 重建并同步完整 `lib/`（见下「发行维护」）。
 

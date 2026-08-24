@@ -3,6 +3,34 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.6] - 2026-08-24
+
+### Fixed
+
+- 移除发行产物中的动态代码执行：`new Function` 的调用点来自内联进 bundle 的
+  schemastery（其 schema DSL 会把字符串 `callback` 编译成函数）。已把
+  `@deepseek-ai/schemastery` 从 bundle **外置**为已发布的 peer（与 cordis
+  同等对待），发行 `lib/index.js` 不再包含任何 `new Function` / `eval`
+  （CI 的 `check-bundle` 现在断言外链集合精确为
+  `cordis + schemastery`，且产物零动态执行）。该调用点在本插件运行时路径上
+  本不可达（只构造、不解析），外置是消除扫描告警的根治，也是更诚实的依赖声明。
+
+### Changed
+
+- 运行时依赖表述更新：bundle 现在 import `@deepseek-ai/cordis` +
+  `@deepseek-ai/schemastery`（两者都已发布）；`dsh-llm` / `dsh-skill` 仍内联
+  （npm 无兼容版本）。
+- `@deepseek-ai/schemastery` 加入 peerDependencies（宿主兼容声明）。
+- `verify-dist` 的运行时导出检查改用链式可调用 stub 加载 bundle
+  （schemastery 在模块加载时被急切构建 schema，但本插件路径不解析它们）。
+- 移除只做类型检查、职责与 `sync:dist` 重叠的 `scripts/build.sh`。
+
+### Tests
+
+- Ubuntu + Windows（CI 矩阵）：check-bundle（外链白名单 + 零动态执行）、
+  verify:dist、verify:pack、test:consumer、test:regressions。
+- tarball 安装 smoke 现在显式安装 cordis + schemastery 两个运行时 peer。
+
 ## [0.1.5] - 2026-08-24
 
 ### Fixed
