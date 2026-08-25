@@ -158,7 +158,7 @@ if (verify.status !== 0) {
   process.exit(verify.status ?? 1)
 }
 
-const gitStatus = spawnSync('git', ['status', '--porcelain', '--', 'lib', 'dist-provenance.json'], {
+const gitStatus = spawnSync('git', ['status', '--porcelain', '--', 'src', 'lib', 'dist-provenance.json'], {
   cwd: repoRoot,
   encoding: 'utf8',
 })

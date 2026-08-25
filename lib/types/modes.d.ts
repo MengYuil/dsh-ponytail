@@ -1,6 +1,7 @@
 /**
- * Ponytail mode resolution: the default level comes from the
- * `PONYTAIL_DEFAULT_MODE` environment variable, then the optional config file
+ * Ponytail mode resolution: the effective default comes from, in order, the
+ * `PONYTAIL_DEFAULT_MODE` environment variable, the Cordis profile
+ * `defaultMode`, the optional user config file
  * `~/.config/ponytail/config.json` (`defaultMode`), then `full`. Setting a
  * level via the `/ponytail` command is session-scoped and lives in an
  * in-memory, per-agent {@link ModeStore}.

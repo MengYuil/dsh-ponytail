@@ -137,19 +137,23 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         }
         const effective = readDefaultMode(process.env, deps.profileMode)
         deps.setDefault(effective)
-        if (written === effective) {
+        // Name the overriding source whenever one exists — even when the saved
+        // value happens to coincide with it (env=full + `/ponytail default full`
+        // must still tell the user the env var is what new sessions actually
+        // follow, so a later env change does not surprise them).
+        const reason = defaultOverrideReason(process.env, deps.profileMode)
+        if (reason !== null) {
           agent.steer(createUserMessage({
-            content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — new sessions start in ${written}.` }],
+            content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (${reason}).` }],
             source: { kind: 'plugin', plugin: name },
           }))
-          return { kind: 'success', text: `Ponytail default set — new sessions start in ${written}.` }
+          return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by ${reason}.` }
         }
-        const reason = defaultOverrideReason(process.env, deps.profileMode) ?? 'PONYTAIL_DEFAULT_MODE'
         agent.steer(createUserMessage({
-          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (${reason}).` }],
+          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — new sessions start in ${written}.` }],
           source: { kind: 'plugin', plugin: name },
         }))
-        return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by ${reason}.` }
+        return { kind: 'success', text: `Ponytail default set — new sessions start in ${written}.` }
       }
 
       // `/ponytail status` is a pure query: report, never modify.

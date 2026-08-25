@@ -3,6 +3,48 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] - 2026-08-25
+
+### Fixed
+
+- P1: 主 `ponytail` 技能不再携带旧版 Full 规则集——技能正文改为指向注入段的
+  **模式感知指针卡**（`PONYTAIL MODE ACTIVE` 段是唯一规则源），Lite/Ultra
+  会话里模型不会从技能加载到与当前档位冲突的 Full 规则。
+- `/ponytail default` 在「保存值与覆盖源值恰好相同」时（如 env=full 且
+  `/ponytail default full`）也会点名覆盖来源，不再漏报。
+- `sync:dist` 的产物变更状态检查补上 `src/`（0.2.0 起同步 src 镜像）。
+- CHANGELOG 章节顺序修正（Unreleased 回到最顶部）。
+- README 兼容矩阵文字更新为 Node 22/24。
+
+### Changed
+
+- `/ponytail-help` 补充 Profile 级 `defaultMode` 配置与完整优先级链
+  （会话 override > env > Profile > 用户 config > full）；Ultra 描述改为
+  「先删后加、质疑投机，但绝不删明确要求」，与 0.2.0 新语义一致。
+- 模块头部注释同步（content.ts / modes.ts）。
+
+### Tests
+
+- ponytail 技能指针卡断言（不含旧 Full 规则）。
+- `/ponytail default` 同值覆盖源提示测试。
+- 62 项测试全绿（Ubuntu/Windows × Node 22/24 CI 矩阵）。
+
+## Unreleased
+## Unreleased
+
+### Security
+
+- Documented the development-only `child_process` boundary (`SECURITY.md`):
+  `scripts/**` is excluded from the npm tarball, has no install lifecycle
+  hook, and is unreachable from the installed runtime entry.
+- Added tarball checks preventing `scripts/` (and `src/`, `tests/`, `test/`,
+  `tools/`) from being published, plus a post-install assertion that the
+  installed package contains no `scripts/`.
+- Added checks preventing `preinstall` / `install` / `postinstall` /
+  `prepare` lifecycle hooks from silently invoking development tooling.
+- Classified repository-only `child_process` findings as accepted
+  development-tooling risk.
+
 ## [0.2.0] - 2026-08-24
 
 ### Added
@@ -40,22 +82,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Security
 
 - 无变化（0.1.6 的 eval-free 产物与 dev-tooling 边界保持）。
-
-## Unreleased
-
-### Security
-
-- Documented the development-only `child_process` boundary (`SECURITY.md`):
-  `scripts/**` is excluded from the npm tarball, has no install lifecycle
-  hook, and is unreachable from the installed runtime entry.
-- Added tarball checks preventing `scripts/` (and `src/`, `tests/`, `test/`,
-  `tools/`) from being published, plus a post-install assertion that the
-  installed package contains no `scripts/`.
-- Added checks preventing `preinstall` / `install` / `postinstall` /
-  `prepare` lifecycle hooks from silently invoking development tooling.
-- Classified repository-only `child_process` findings as accepted
-  development-tooling risk.
-
 ## [0.1.6] - 2026-08-24
 
 ### Fixed
