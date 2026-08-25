@@ -3,6 +3,7 @@
 ![CI](https://github.com/MengYuil/dsh-ponytail/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm](https://img.shields.io/npm/v/@mengyuly/dsh-ponytail)](https://www.npmjs.com/package/@mengyuly/dsh-ponytail)
+[![dsh.so security](https://www.dsh.so/badge/dsh-ponytail-4.svg)](https://www.dsh.so/artifact/dsh-ponytail-4/)
 
 把 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)（「懒惰资深开发者」最少代码心智）移植成 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件。功能与效率与上游一致：7 级阶梯规则集每轮注入、强度切换、`/ponytail-*` 斜杠命令。
 
