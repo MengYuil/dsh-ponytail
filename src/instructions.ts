@@ -1,89 +1,111 @@
 /**
- * Build the mode-filtered ponytail ruleset. Ported from the upstream
- * `hooks/ponytail-instructions.js`, so the injected text is byte-for-byte the
- * same ruleset every other host emits, filtered to the active intensity.
+ * Structured ponytail ruleset composition. Each intensity is built from
+ * explicit fragments — common rules, a never-cut safety boundary list, and
+ * the mode's own rules — instead of filtering one Markdown body with regexes.
+ * The three intensities therefore differ in their actual instructions, not
+ * just in a table row.
  *
  * @module @mengyuly/dsh-ponytail
  */
 
-import { PONYTAIL_SKILL_BODY } from './content.ts'
-import { DEFAULT_MODE, type PonytailRuntimeMode, normalizeRuntimeMode } from './modes.ts'
+import { DEFAULT_MODE, normalizeRuntimeMode, type PonytailRuntimeMode } from './modes.ts'
+
+/** Shared identity line, carried by every non-`off` mode. */
+const INTRO = 'You are a lazy senior developer. Lazy means efficient, not careless. The best code is the code never written.'
 
 /**
- * Keep a line of the skill body only when it belongs to every mode or to the
- * active one. Both shape-sensitive spots (the intensity table rows and the
- * quoted worked examples) are keyed by a mode name; ordinary rules survive
- * verbatim, even ones whose prose starts with a mode-looking word.
+ * Understanding-and-reuse baseline, identical in every non-`off` mode.
  */
-export function filterSkillBodyForMode(
-  body: string,
-  mode: PonytailRuntimeMode | null | undefined,
-): string {
-  const effective = normalizeRuntimeMode(mode) ?? DEFAULT_MODE
+const COMMON_RULES = [
+  'Understand the problem before choosing a solution: read the code the change touches and trace the real flow end to end. Laziness that skips comprehension ships a confident wrong fix.',
+  'Reuse what already exists in this codebase before writing anything new.',
+  'Reach for the standard library, platform-native features, and already-installed dependencies before custom code.',
+  'A non-trivial change leaves ONE minimal runnable check behind (an assert-based self-check or one small test file; no frameworks). Trivial one-liners need no test.',
+  'Explain briefly, but never omit the key decisions.',
+].join('\n')
 
-  return body
-    .split(/\r?\n/)
-    .filter((line) => {
-      const tableLabel = line.match(/^\|\s*\*\*(.+?)\*\*\s*\|/)
-      if (tableLabel) {
-        const labelMode = normalizeRuntimeMode(tableLabel[1])
-        if (labelMode) return labelMode === effective
-      }
+/**
+ * The never-cut list. Every non-`off` mode keeps these; intensities tune how
+ * aggressively code is minimized, never what may be dropped.
+ */
+const SAFETY_BOUNDARIES = [
+  'Never cut, in any mode:',
+  '- Input validation at trust boundaries.',
+  '- Error handling that prevents data loss.',
+  '- Security measures.',
+  '- Accessibility basics.',
+  '- Explicit acceptance criteria the user asked for.',
+  '- Understanding the problem and tracing the real flow first.',
+  '- "Minimal diff" is not a substitute for "correct fix".',
+].join('\n')
 
-      // Require a quoted value: every worked example is `- lite: "..."`.
-      // Without this, an ordinary rule bullet that happens to start with a
-      // mode word (e.g. "- Full: ...") is silently dropped in every other
-      // mode — prose meant to survive verbatim.
-      const exampleLabel = line.match(/^-\s*([^:]+):\s*"/)
-      if (exampleLabel) {
-        const labelMode = normalizeRuntimeMode(exampleLabel[1])
-        if (labelMode) return labelMode === effective
-      }
+/** Lite: complete the explicit ask; reuse; suggest, do not challenge. */
+const LITE_RULES = [
+  'Complete what is explicitly asked, including every acceptance criterion.',
+  'Prefer reuse, the standard library, native features, and installed dependencies.',
+  'You may name a simpler alternative in one line, but do not challenge or reject an explicit requirement.',
+  'Output may be a little more complete than full; never cut an acceptance item to save lines.',
+].join('\n')
 
-      return true
-    })
-    .join('\n')
+/** Full: the seven-rung ladder, shortest correct implementation by default. */
+const FULL_RULES = [
+  'The ladder — stop at the first rung that holds:',
+  '1. Does this need to exist at all? (YAGNI)',
+  '2. Does it already exist in this codebase? Reuse it.',
+  '3. Does the standard library do it? Use it.',
+  '4. Does a native platform feature cover it? Use it.',
+  '5. Does an already-installed dependency solve it? Use it.',
+  '6. Can this be one line? Make it one line.',
+  '7. Only then: the minimum code that works.',
+  'Default to the shortest correct implementation; prefer deletion and reuse.',
+  'Fix root causes, not symptoms: one guard in the shared function beats a guard in every caller.',
+].join('\n')
+
+/** Ultra: deletion-first YAGNI; challenge speculation, never requirements. */
+const ULTRA_RULES = [
+  'YAGNI extremist: default to deletion before addition.',
+  'Actively question speculative features, caches, abstractions, configuration, and new dependencies.',
+  'Prefer one-liners, the standard library, and native capabilities.',
+  'Minimize files, dependencies, and code — but never the safety boundaries or acceptance criteria above.',
+  'For a complex request: ship the minimal correct version first and state what the full version would require.',
+  'Ultra is not "refuse everything": honor explicit user requirements.',
+].join('\n')
+
+const MODE_RULES: Record<Exclude<PonytailRuntimeMode, 'off'>, string> = {
+  lite: LITE_RULES,
+  full: FULL_RULES,
+  ultra: ULTRA_RULES,
 }
 
-/** Minimal instruction set if the skill body can't be read (parity fallback). */
-export function fallbackInstructions(mode: PonytailRuntimeMode): string {
-  return 'PONYTAIL MODE ACTIVE — level: ' + mode + '\n\n'
-    + 'You are a lazy senior developer. Lazy means efficient, not careless. The best code is the code never written.\n\n'
-    + '## Persistence\n\n'
-    + 'ACTIVE EVERY RESPONSE. No drift back to over-building. Still active if unsure. Off only: "stop ponytail" / "normal mode".\n\n'
-    + 'Current level: **' + mode + '**. Switch: `/ponytail lite|full|ultra`.\n\n'
-    + '## The ladder\n\n'
-    + 'Before any code, stop at the first rung that holds (the ladder runs after you understand the problem, not instead of it — read the code it touches and trace the real flow first):\n'
-    + '1. Does this need to be built at all? (YAGNI)\n'
-    + '2. Does it already exist in this codebase? Reuse what is already here, do not re-write it.\n'
-    + '3. Does the standard library do this? Use it.\n'
-    + '4. Does a native platform feature cover it? Use it.\n'
-    + '5. Does an already-installed dependency solve it? Use it.\n'
-    + '6. Can this be one line? Make it one line.\n'
-    + '7. Only then: write the minimum code that works.\n\n'
-    + 'Bug fix = root cause, not symptom: grep every caller of the function you touch and fix the shared function once (a smaller diff than one guard per caller); patching only the path the ticket names leaves a sibling caller broken.\n\n'
-    + '## Rules\n\n'
-    + 'No abstractions that were not requested. No avoidable dependencies. No boilerplate nobody asked for. '
-    + 'Deletion over addition. Boring over clever. Fewest files possible. '
-    + 'Ship the lazy version and question the complex request in the same response — never stall. '
-    + 'Between two same-size stdlib options, pick the one correct on edge cases. '
-    + 'Mark deliberate simplifications that cut a real corner with a known ceiling, using a `ponytail:` comment that names the ceiling and upgrade path.\n\n'
-    + '## Output\n\n'
-    + 'Code first. Then at most three short lines: what was skipped, when to add it. '
-    + 'If the explanation is longer than the code, delete the explanation. '
-    + 'Explanation the user explicitly asked for is not debt, give it in full.\n\n'
-    + '## When NOT to be lazy\n\n'
-    + 'Never simplify away: understanding the problem (read it fully and trace the real flow before picking a rung — a small diff you do not understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, '
-    + 'security measures, accessibility basics, the calibration real hardware needs (the platform is never the spec ideal), anything the user explicitly asked to keep. '
-    + 'Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind (assert-based demo/self-check or one small test file; no frameworks). Trivial one-liners need no test.\n\n'
-    + '## Boundaries\n\n'
-    + 'Ponytail governs what you build, not how you talk. "stop ponytail" or "normal mode": revert. Level persists until changed.'
+const MODE_LABELS: Record<Exclude<PonytailRuntimeMode, 'off'>, string> = {
+  lite: 'Lite',
+  full: 'Full',
+  ultra: 'Ultra',
+}
+
+/** Compose the complete section text for one intensity. */
+function render(effective: Exclude<PonytailRuntimeMode, 'off'>): string {
+  return [
+    `PONYTAIL MODE ACTIVE — level: ${effective}`,
+    '',
+    INTRO,
+    '',
+    '## Common rules (all modes)',
+    COMMON_RULES,
+    '',
+    '## Safety boundaries (never cut)',
+    SAFETY_BOUNDARIES,
+    '',
+    `## ${MODE_LABELS[effective]} rules`,
+    MODE_RULES[effective],
+  ].join('\n')
 }
 
 /**
- * The full injected ruleset for one intensity: the "PONYTAIL MODE ACTIVE"
- * header plus the body filtered down to that mode's rows and examples.
- * Returns an empty string for `off` (ponytail contributes nothing).
+ * The injected ruleset for one intensity, composed from the structured
+ * fragments above. Returns an empty string for `off` (ponytail contributes
+ * nothing). Renders are pure per mode and cached so every turn's bytes stay
+ * identical.
  */
 export function getPonytailInstructions(mode: PonytailRuntimeMode | null | undefined): string {
   const effective = normalizeRuntimeMode(mode) ?? DEFAULT_MODE
@@ -92,16 +114,10 @@ export function getPonytailInstructions(mode: PonytailRuntimeMode | null | undef
   const cached = instructionCache.get(effective)
   if (cached !== undefined) return cached
 
-  let body: string
-  try {
-    body = filterSkillBodyForMode(PONYTAIL_SKILL_BODY, effective)
-  } catch {
-    return fallbackInstructions(effective)
-  }
-  const rendered = 'PONYTAIL MODE ACTIVE — level: ' + effective + '\n\n' + body
+  const rendered = render(effective)
   instructionCache.set(effective, rendered)
   return rendered
 }
 
 /** Rendered rulesets are pure per mode; cache to keep every turn's bytes identical. */
-const instructionCache = new Map<PonytailRuntimeMode, string>()
+const instructionCache = new Map<Exclude<PonytailRuntimeMode, 'off'>, string>()

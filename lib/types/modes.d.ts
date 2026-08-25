@@ -47,17 +47,26 @@ export interface DefaultModeResolution {
     readonly issue?: DefaultModeIssue;
 }
 /**
- * Read the configured default with diagnostics: environment variable first,
- * then the config file, then `full`. A missing config file is normal and
- * yields no issue; a broken one yields the fallback mode plus one issue for
- * the caller to warn about once.
+ * Read the configured default with diagnostics. Priority:
+ * `PONYTAIL_DEFAULT_MODE` → Cordis profile `defaultMode` → user config file →
+ * `full`. A missing config file is normal and yields no issue; a broken one
+ * yields the fallback mode plus one issue for the caller to warn about once.
+ * @param env - the process environment to read.
+ * @param profileMode - the validated Cordis profile `defaultMode`, or `null`
+ *   when the profile config is absent or invalid (invalid values are reported
+ *   by the caller; this function only consumes valid ones).
  */
-export declare function readDefaultModeInfo(env?: NodeJS.ProcessEnv): DefaultModeResolution;
+export declare function readDefaultModeInfo(env?: NodeJS.ProcessEnv, profileMode?: PonytailRuntimeMode | null): DefaultModeResolution;
 /**
  * Read the configured default for this host: environment variable first, then
- * the config file, then `full`.
+ * the Cordis profile `defaultMode`, then the user config file, then `full`.
  */
-export declare function readDefaultMode(env?: NodeJS.ProcessEnv): PonytailRuntimeMode;
+export declare function readDefaultMode(env?: NodeJS.ProcessEnv, profileMode?: PonytailRuntimeMode | null): PonytailRuntimeMode;
+/**
+ * Why a `saved` default is not the effective one — for the `/ponytail default`
+ * result message. `null` means the saved value is effective.
+ */
+export declare function defaultOverrideReason(env: NodeJS.ProcessEnv, profileMode: PonytailRuntimeMode | null): 'PONYTAIL_DEFAULT_MODE' | 'profile configuration' | null;
 /**
  * Persist a new default level to the config file, preserving other fields.
  * Returns the normalized mode, or `null` when the value is not a runtime mode.

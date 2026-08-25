@@ -1,23 +1,17 @@
 /**
- * Build the mode-filtered ponytail ruleset. Ported from the upstream
- * `hooks/ponytail-instructions.js`, so the injected text is byte-for-byte the
- * same ruleset every other host emits, filtered to the active intensity.
+ * Structured ponytail ruleset composition. Each intensity is built from
+ * explicit fragments — common rules, a never-cut safety boundary list, and
+ * the mode's own rules — instead of filtering one Markdown body with regexes.
+ * The three intensities therefore differ in their actual instructions, not
+ * just in a table row.
  *
  * @module @deepseek-ai/dsh-ponytail
  */
 import { type PonytailRuntimeMode } from './modes.ts';
 /**
- * Keep a line of the skill body only when it belongs to every mode or to the
- * active one. Both shape-sensitive spots (the intensity table rows and the
- * quoted worked examples) are keyed by a mode name; ordinary rules survive
- * verbatim, even ones whose prose starts with a mode-looking word.
- */
-export declare function filterSkillBodyForMode(body: string, mode: PonytailRuntimeMode | null | undefined): string;
-/** Minimal instruction set if the skill body can't be read (parity fallback). */
-export declare function fallbackInstructions(mode: PonytailRuntimeMode): string;
-/**
- * The full injected ruleset for one intensity: the "PONYTAIL MODE ACTIVE"
- * header plus the body filtered down to that mode's rows and examples.
- * Returns an empty string for `off` (ponytail contributes nothing).
+ * The injected ruleset for one intensity, composed from the structured
+ * fragments above. Returns an empty string for `off` (ponytail contributes
+ * nothing). Renders are pure per mode and cached so every turn's bytes stay
+ * identical.
  */
 export declare function getPonytailInstructions(mode: PonytailRuntimeMode | null | undefined): string;

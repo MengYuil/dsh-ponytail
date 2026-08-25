@@ -15,6 +15,19 @@
 import type { Context } from '@deepseek-ai/cordis';
 export declare const name = "ponytail";
 export declare const inject: string[];
+/**
+ * Cordis profile-level configuration (set per profile via the bundle row's
+ * `config` in a profile patch). `defaultMode` sits between the environment
+ * variable and the user config file in the default-resolution chain.
+ *
+ * No `Config` schema is exported on purpose: cordis passes the raw config
+ * through unvalidated then, so an invalid `defaultMode` falls back with a
+ * one-time warning instead of failing the plugin mount.
+ */
+export interface PonytailConfig {
+    /** Profile-scoped default intensity, e.g. `web → full`, `tui → lite`. */
+    defaultMode?: unknown;
+}
 /** Extract the plain text of one user message (only its text blocks). */
 export declare function messageText(message: {
     content: readonly {
@@ -33,4 +46,4 @@ export declare function containsDeactivation(messages: readonly {
  * Register the always-on ruleset section, the runtime skills, the slash
  * commands, and the plain-text deactivation listener.
  */
-export declare function apply(ctx: Context): void;
+export declare function apply(ctx: Context, config?: PonytailConfig): void;

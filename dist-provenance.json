@@ -5,6 +5,7 @@
   "generatedBy": {
     "node": "v24.16.0",
     "typescript": "6.0.3",
-    "tsdown": "0.22.2"
+    "tsdown": "0.22.2",
+    "cordis": "4.0.1"
   }
 }

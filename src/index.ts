@@ -24,6 +24,7 @@ import { getPonytailInstructions } from './instructions.ts'
 import {
   compileSubagentMatcher,
   configPath,
+  defaultOverrideReason,
   isDeactivationCommand,
   isSubagentSession,
   ModeStore,
@@ -37,6 +38,20 @@ import {
 
 export const name = 'ponytail'
 export const inject = ['systemPrompt', 'skills']
+
+/**
+ * Cordis profile-level configuration (set per profile via the bundle row's
+ * `config` in a profile patch). `defaultMode` sits between the environment
+ * variable and the user config file in the default-resolution chain.
+ *
+ * No `Config` schema is exported on purpose: cordis passes the raw config
+ * through unvalidated then, so an invalid `defaultMode` falls back with a
+ * one-time warning instead of failing the plugin mount.
+ */
+export interface PonytailConfig {
+  /** Profile-scoped default intensity, e.g. `web → full`, `tui → lite`. */
+  defaultMode?: unknown
+}
 
 /** Prompt-section order: after the deployment persona (0), before tool guidance (100–199). */
 const SECTION_ORDER = 40
@@ -63,6 +78,8 @@ export function containsDeactivation(messages: readonly { content: readonly { ty
 interface CommandDeps {
   readonly ctx: Context
   readonly store: ModeStore
+  /** Validated Cordis profile `defaultMode`, or `null`. */
+  readonly profileMode: PonytailRuntimeMode | null
   readonly defaultMode: () => PonytailRuntimeMode
   readonly setDefault: (mode: PonytailRuntimeMode) => void
 }
@@ -105,8 +122,9 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
       const partsHead = head ?? ''
 
       // `/ponytail default <mode>` persists the default for future sessions.
-      // The env var still outranks the saved value, so the effective default
-      // is recomputed after the write instead of trusting the saved one.
+      // The env var (and the profile config) still outrank the saved value, so
+      // the effective default is recomputed after the write instead of
+      // trusting the saved one.
       if (partsHead === 'default') {
         let written: PonytailRuntimeMode | null
         try {
@@ -117,7 +135,7 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         if (!written) {
           return { kind: 'error', text: 'Usage: /ponytail default [lite|full|ultra|off]' }
         }
-        const effective = readDefaultMode()
+        const effective = readDefaultMode(process.env, deps.profileMode)
         deps.setDefault(effective)
         if (written === effective) {
           agent.steer(createUserMessage({
@@ -126,11 +144,12 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
           }))
           return { kind: 'success', text: `Ponytail default set — new sessions start in ${written}.` }
         }
+        const reason = defaultOverrideReason(process.env, deps.profileMode) ?? 'PONYTAIL_DEFAULT_MODE'
         agent.steer(createUserMessage({
-          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (PONYTAIL_DEFAULT_MODE).` }],
+          content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (${reason}).` }],
           source: { kind: 'plugin', plugin: name },
         }))
-        return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by PONYTAIL_DEFAULT_MODE.` }
+        return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by ${reason}.` }
       }
 
       // `/ponytail status` is a pure query: report, never modify.
@@ -206,7 +225,17 @@ function descriptionFor(skill: string): string {
  * Register the always-on ruleset section, the runtime skills, the slash
  * commands, and the plain-text deactivation listener.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: PonytailConfig = {}): void {
+  // Cordis profile-level default (set per profile via the bundle row's
+  // `config`). Read once at mount: cordis exposes no stable public config-
+  // change event (only the internal update waterfall), so profile changes
+  // apply on the next profile start — the user config file keeps its
+  // hot-reload behavior.
+  const profileMode = normalizeRuntimeMode(config.defaultMode)
+  if (config.defaultMode !== undefined && profileMode === null) {
+    ctx.logger.warn(`[ponytail] profile config defaultMode is not lite|full|ultra|off: ${JSON.stringify(config.defaultMode)}; falling back`)
+  }
+
   // Process-level effective default, resolved lazily so a broken config warns
   // once (not per request); `/ponytail default` and the watcher refresh it.
   let defaultMode: PonytailRuntimeMode | null = null
@@ -217,7 +246,7 @@ export function apply(ctx: Context): void {
     ctx.logger.warn(`[ponytail] ${message}`)
   }
   const refreshDefault = (): PonytailRuntimeMode => {
-    const resolution = readDefaultModeInfo()
+    const resolution = readDefaultModeInfo(process.env, profileMode)
     if (resolution.issue) {
       warnOnce(`default:${resolution.issue.kind}`, `${resolution.issue.detail}; using ${resolution.mode}`)
     }
@@ -244,7 +273,7 @@ export function apply(ctx: Context): void {
   // once the process starts.
   const configFile = configPath()
   const onConfigChange = (): void => {
-    const resolution = readDefaultModeInfo()
+    const resolution = readDefaultModeInfo(process.env, profileMode)
     if (resolution.issue) {
       warnOnce(`config:${resolution.issue.kind}`, `${resolution.issue.detail}; keeping the previous default`)
       return
@@ -284,7 +313,7 @@ export function apply(ctx: Context): void {
   // Human slash commands; the child activates only when the TUI/web mounts a
   // command registry (headless automation never composes it).
   ctx.inject(['commands'], (commandCtx) => {
-    registerCommands({ ctx, store, defaultMode: readDefault, setDefault }, commandCtx)
+    registerCommands({ ctx, store, profileMode, defaultMode: readDefault, setDefault }, commandCtx)
   })
 
   // Plain-text "stop ponytail" / "normal mode" deactivation, matched on the

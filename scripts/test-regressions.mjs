@@ -31,7 +31,7 @@ const good = {
   sourceRepository: 'https://github.com/deepseek-ai/deepseek-harness',
   sourceCommit: 'a'.repeat(40),
   sourcePackage: 'packages/community/ponytail',
-  generatedBy: { node: 'v24.16.0', typescript: '5.9.3', tsdown: '0.22.0' },
+  generatedBy: { node: 'v24.16.0', typescript: '5.9.3', tsdown: '0.22.0', cordis: '4.0.1' },
 }
 assert.equal(validateProvenance(good, 'packages/community/ponytail').length, 0, 'well-formed provenance must pass')
 assert.ok(

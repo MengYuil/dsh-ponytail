@@ -107,12 +107,19 @@ export interface DefaultModeResolution {
 }
 
 /**
- * Read the configured default with diagnostics: environment variable first,
- * then the config file, then `full`. A missing config file is normal and
- * yields no issue; a broken one yields the fallback mode plus one issue for
- * the caller to warn about once.
+ * Read the configured default with diagnostics. Priority:
+ * `PONYTAIL_DEFAULT_MODE` → Cordis profile `defaultMode` → user config file →
+ * `full`. A missing config file is normal and yields no issue; a broken one
+ * yields the fallback mode plus one issue for the caller to warn about once.
+ * @param env - the process environment to read.
+ * @param profileMode - the validated Cordis profile `defaultMode`, or `null`
+ *   when the profile config is absent or invalid (invalid values are reported
+ *   by the caller; this function only consumes valid ones).
  */
-export function readDefaultModeInfo(env: NodeJS.ProcessEnv = process.env): DefaultModeResolution {
+export function readDefaultModeInfo(
+  env: NodeJS.ProcessEnv = process.env,
+  profileMode: PonytailRuntimeMode | null = null,
+): DefaultModeResolution {
   const path = configPath(env)
   const envMode = normalizeRuntimeMode(env.PONYTAIL_DEFAULT_MODE)
 
@@ -122,16 +129,16 @@ export function readDefaultModeInfo(env: NodeJS.ProcessEnv = process.env): Defau
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       // No config file is the normal state.
-      return { mode: envMode ?? DEFAULT_MODE }
+      return { mode: envMode ?? profileMode ?? DEFAULT_MODE }
     }
     return {
-      mode: envMode ?? DEFAULT_MODE,
+      mode: envMode ?? profileMode ?? DEFAULT_MODE,
       issue: { kind: 'read', detail: `${path}: ${(error as Error).message}` },
     }
   }
 
-  // The config is inspected even when the env wins, so a broken file still
-  // surfaces one warning instead of being silently ignored.
+  // The config is inspected even when a higher-priority source wins, so a
+  // broken file still surfaces one warning instead of being silently ignored.
   let configIssue: DefaultModeIssue | undefined
   let fromConfig: PonytailRuntimeMode | null = null
   try {
@@ -149,16 +156,33 @@ export function readDefaultModeInfo(env: NodeJS.ProcessEnv = process.env): Defau
   }
 
   if (envMode) return { mode: envMode, ...(configIssue ? { issue: configIssue } : {}) }
+  if (profileMode) return { mode: profileMode, ...(configIssue ? { issue: configIssue } : {}) }
   if (configIssue) return { mode: DEFAULT_MODE, issue: configIssue }
   return { mode: fromConfig ?? DEFAULT_MODE }
 }
 
 /**
  * Read the configured default for this host: environment variable first, then
- * the config file, then `full`.
+ * the Cordis profile `defaultMode`, then the user config file, then `full`.
  */
-export function readDefaultMode(env: NodeJS.ProcessEnv = process.env): PonytailRuntimeMode {
-  return readDefaultModeInfo(env).mode
+export function readDefaultMode(
+  env: NodeJS.ProcessEnv = process.env,
+  profileMode: PonytailRuntimeMode | null = null,
+): PonytailRuntimeMode {
+  return readDefaultModeInfo(env, profileMode).mode
+}
+
+/**
+ * Why a `saved` default is not the effective one — for the `/ponytail default`
+ * result message. `null` means the saved value is effective.
+ */
+export function defaultOverrideReason(
+  env: NodeJS.ProcessEnv,
+  profileMode: PonytailRuntimeMode | null,
+): 'PONYTAIL_DEFAULT_MODE' | 'profile configuration' | null {
+  if (normalizeRuntimeMode(env.PONYTAIL_DEFAULT_MODE)) return 'PONYTAIL_DEFAULT_MODE'
+  if (profileMode) return 'profile configuration'
+  return null
 }
 
 /**

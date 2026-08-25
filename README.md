@@ -33,12 +33,18 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 
 ## 功能
 
-- **核心模式** `/ponytail` — 每轮注入「懒惰阶梯」：能不做就不做（YAGNI）→ 代码库已有 → 标准库 → 平台原生 → 已装依赖 → 一行能解决 → 才是最少代码。
-  - `full`（默认）/ `lite` / `ultra` / `off` 四档，**会话级**（会话 A 的档位不影响会话 B，会话结束自动释放）。
-  - 裸 `/ponytail`：已启用时只报告；会话为 `off` 时恢复到有效默认档（有效默认也是 `off` 则回 `full`）。
+- **核心模式** `/ponytail` — 每轮注入结构化的懒惰开发者规则集，**三个档位是真实不同的 Prompt 片段**（不只是换一行）：
+  - **Common（所有非 off 档共享）**：先理解问题、追踪真实调用流；优先复用/标准库/原生能力/已有依赖；非平凡改动留一个最小可运行检查；解释简短但不省略关键决策。
+  - **Safety（任何档位都不可删）**：输入校验、防数据丢失的错误处理、安全措施、无障碍、明确验收项、先理解问题、「最小 diff ≠ 正确修复」。
+  - **`lite`**：完整交付明确要求；可以一句话指出更简方案，但**不挑战明确需求**；输出可略完整。
+  - **`full`（默认）**：完整七级阶梯（YAGNI → 复用 → 标准库 → 原生 → 已装依赖 → 一行 → 最小实现），默认选最短正确实现，修根因而非症状。
+  - **`ultra`**：YAGNI 极端（先删后加）；主动质疑投机性功能/缓存/抽象/配置/新依赖；复杂需求先给最小正确版并说明完整版条件；**不是无脑拒绝**。
+  - `off`：完全不注入。
+  - 档位**会话级**（会话 A 不影响会话 B，会话结束自动释放）。
+  - 裸 `/ponytail`：已启用时只报告；`off` 时恢复到有效默认档（默认也是 `off` 则回 `full`）。
   - `/ponytail status`：只查询、永不修改。
   - `/ponytail lite|full|ultra|off`：显式切换。
-  - `/ponytail default <mode>`：持久化默认值到配置文件（环境变量仍优先）。
+  - `/ponytail default <mode>`：持久化默认值到**用户级配置文件**（env/Profile 仍优先，命令分别提示 saved 与 effective）。
 - **一次性技能**（用哪个载哪个，不进常驻 prompt）：
   - `/ponytail-review` — 针对最近改动找过度工程，一行一条：位置 + 删什么 + 替代。
   - `/ponytail-audit` — 全仓库过度工程审计，排序清单。
@@ -46,22 +52,52 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   - `/ponytail-gain` — 收益计分板（更少代码/更省成本/更快）。
   - `/ponytail-help` — 参考卡。
 - **停用**：说 `stop ponytail` 或 `normal mode`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
-- **默认值**：环境变量 `PONYTAIL_DEFAULT_MODE` > `~/.config/ponytail/config.json`（Windows：`%APPDATA%\ponytail\config.json`）的 `{"defaultMode": "lite"}` > `full`。`/ponytail default` 写入的是配置文件，**环境变量设置且合法时仍压过保存值**（命令会分别提示 saved 与 effective）。
-- **子代理**：常驻段作用于当前会话自身；DSH 内置 `subagent` 工具跑的是隔离的全新子代理、不继承本 persona。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）用于在 harness 会下发给子代理的场景里排除指定子代理；缺省全部注入。
-- **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警；热更新遇到临时非法内容保留上一个合法默认值。
+- **默认值优先级**（代码/测试/文档一致）：
+  ```
+  会话 override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > 用户 config.json > full
+  ```
+  - **Profile 级配置**（Cordis 官方插件配置 API，各 profile 可不同）：
+    ```yaml
+    # ~/.dsh/profiles/tui/cordis.patch.yml 中给 ponytail 行补 config
+    - insert:
+        - id: ponytail
+          name: '@mengyuly/dsh-ponytail'
+          config:
+            defaultMode: lite
+    ```
+    例：`web → full`、`tui → lite`、`automation → off`。Profile 配置在插件初始化时读取（Cordis 无公开配置变更事件），**改后需重启该 profile**；非法值只告警一次并回退，不影响启动。用户 `config.json` 仍保持热更新。
+  - **用户 config.json**（`~/.config/ponytail/config.json`，Windows `%APPDATA%\ponytail\config.json`）：`{"defaultMode": "lite"}`，热更新（~1s 轮询），非法内容保留上次合法值。
+- **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，默认**不继承**本插件的 system-prompt；`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）**只用于筛选能进入本 Prompt 管线的子代理**，不是继承开关；DSH 当前没有公开的子代理派生/可继承 Prompt API，因此**未实现、也不宣称父子 Prompt 继承**（有官方 API 后再考虑只读快照传播）。非法正则告警一次并 fail-open。
+- **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警。
 
 ## 效率
 
-- 常驻注入 ≈ 1.3k tokens/请求，`off` 归零；同模式字节级稳定，KV-cache 前缀命中，切模式后才重算一次。
+- 常驻注入：**lite ≈ 369 / full ≈ 420 / ultra ≈ 406 tokens**（结构化片段，不再是 ~1.3k）；`off` 归零；同模式字节级稳定，KV-cache 前缀命中。
 - 一次性技能 300–540 tokens 一个，零常驻开销。
 - 实测同任务 A/B：ponytail 臂 34 行 vs 完整实现臂 272 行，均标准库、均自测通过。
 
 ## 已知限制
 
-- 强度档位只切换阶梯表格/示例，阶梯正文恒定；lite/full/ultra 体积差异很小（行为倾向，非大小差异）。
+- 档位差异在**规则语义**上（见上），三者体积相近（≤ 满档 ×1.25）。
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
-- 配置文件的默认档位热更新（fs 轮询 ~1s，作用于无覆盖的会话）；环境变量改动仍需重启。
+- 用户 `config.json` 热更新；`PONYTAIL_DEFAULT_MODE` 与 Profile config 需重启生效。
 - 发行 `lib/` 是预编译产物；改源码请回主仓重建后同步。
+
+## 兼容矩阵（实测，不虚构）
+
+| 组件 | 已验证环境 | 备注 |
+|---|---|---|
+| Node.js | 22.x / 24.x | CI 矩阵 4 组合全绿 |
+| OS | ubuntu-latest / windows-latest | CI 矩阵 |
+| DSH | commit `b150a551`（构建所用 checkout） | 与正式发布版本的精确对应关系**待确认** |
+| Cordis | 4.0.1（构建所用 vendor） | 同上 |
+| web profile | 已验证 | 本机真实 profile 长期运行 + 三路径隔离安装实测（npm / GitHub / tgz） |
+| tui profile | 未验证 | 未在 tui profile 中启动测试 |
+| headless profile | 未验证 | 未完整启动；插件单元测试运行于无 UI 环境 |
+| npm tarball | 已验证 | 内容/版本/安装后 smoke/NodeNext consumer |
+
+- `dist-provenance.json` 记录实际构建来源（checkout commit + node/typescript/tsdown/cordis 版本）。
+- 不要用 `continue-on-error` 掩盖失败——矩阵全绿才是绿。
 
 ## 测试环境与权威关系
 

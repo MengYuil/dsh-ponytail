@@ -10,19 +10,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - name: "[${{ matrix.os }}] Bundle externals and manifest surface"
+          node-version: ${{ matrix.node }}
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Bundle externals and manifest surface"
         run: node scripts/check-bundle.mjs
-      - name: "[${{ matrix.os }}] Static dist consistency (src/d.ts exports, signatures, runtime exports, no source maps, provenance)"
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Static dist consistency (src/d.ts exports, signatures, runtime exports, no source maps, provenance)"
         run: npm run verify:dist
-      - name: "[${{ matrix.os }}] Verification tooling regression tests"
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Verification tooling regression tests"
         run: npm run test:regressions
-      - name: "[${{ matrix.os }}] Pack verification (tarball contents, version match, installed smoke)"
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (tarball contents, version match, installed smoke)"
         run: npm run verify:pack
-      - name: "[${{ matrix.os }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: npm run test:consumer

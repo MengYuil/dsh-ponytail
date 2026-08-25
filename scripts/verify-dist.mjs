@@ -28,6 +28,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const EXPORT_RE = /export\s+(?:declare\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z_$][\w$]*)/g
 const names = (text) => { const set = new Set(); for (const m of text.matchAll(EXPORT_RE)) set.add(m[1]); return set }
 
+/** Value exports only (function/const/class) — what the runtime bundle must expose. */
+const VALUE_EXPORT_RE = /export\s+(?:declare\s+)?(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/g
+const valueNames = (text) => { const set = new Set(); for (const m of text.matchAll(VALUE_EXPORT_RE)) set.add(m[1]); return set }
+
 /**
  * A declaration file that references a source map is a regression: since
  * v0.1.4 the release policy is `declarationMap: false`, and a dangling
@@ -66,7 +70,7 @@ export function validateProvenance(doc, sourcePackage) {
   if (!generatedBy || typeof generatedBy !== 'object') {
     messages.push('dist-provenance.json: generatedBy missing')
   } else {
-    for (const key of ['node', 'typescript', 'tsdown']) {
+    for (const key of ['node', 'typescript', 'tsdown', 'cordis']) {
       if (typeof generatedBy[key] !== 'string' || generatedBy[key] === '') {
         messages.push(`dist-provenance.json: generatedBy.${key} missing`)
       }
@@ -143,7 +147,7 @@ export async function runDistChecks() {
   try {
     const mod = await import(pathToFileURL(join(repoRoot, 'lib', 'index.js')).href)
     const runtime = new Set(Object.keys(mod))
-    const declared = names(dts('index'))
+    const declared = valueNames(dts('index'))
     check([...declared].every(x => runtime.has(x)), `lib/index.js lacks declared exports: ${[...declared].filter(x => !runtime.has(x)).join(', ')}`)
     check([...runtime].every(x => declared.has(x)), `lib/index.js exports beyond the declarations: ${[...runtime].filter(x => !declared.has(x)).join(', ')}`)
     check(mod.name === 'ponytail' && typeof mod.apply === 'function'

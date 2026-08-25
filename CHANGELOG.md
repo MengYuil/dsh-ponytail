@@ -3,6 +3,44 @@
 All notable changes to `@mengyuly/dsh-ponytail` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-08-24
+
+### Added
+
+- 真正区分 lite/full/ultra 的 Prompt：从「Markdown 正则过滤同一份正文」改为
+  **结构化片段组合**（Common 规则 + 永不可删的 Safety 边界 + 各档独立规则）。
+  - `lite`：完整交付明确要求、可一句话提示更简方案、不挑战明确需求；
+  - `full`：完整七级阶梯、默认最短正确实现、修根因；
+  - `ultra`：先删后加、主动质疑投机性功能/缓存/抽象/配置/新依赖、先给最小
+    正确版并说明完整版条件、不是无脑拒绝；
+  - 三档共享 Common + Safety（输入校验/数据丢失防护/安全/无障碍/明确验收项）。
+  - 常驻注入从 ~1.3k tokens 降到 **lite≈369 / full≈420 / ultra≈406** tokens。
+- **Cordis Profile 级 `defaultMode` 配置**：`config: { defaultMode }` 按
+  profile 生效（`web → full`、`tui → lite` 等），优先级
+  `会话 override > env > Profile > 用户 config.json > full`；非法值告警一次
+  并回退；Profile 配置初始化时读取（Cordis 无公开配置变更事件），重启生效；
+  `/ponytail default` 的 saved/effective 提示现在会点名覆盖来源
+  （`PONYTAIL_DEFAULT_MODE` / `profile configuration`）。
+- 兼容矩阵：CI 扩展为 **Node 22 × Node 24 × ubuntu × windows**（4 组合）；
+  `dist-provenance.json` 增加 `generatedBy.cordis`；README 记录实测矩阵
+  （含 web profile 本机验证、tui/headless 如实标注未验证）。
+- 结构化 Prompt 的行为测试、快照测试、token 统计测试；Profile 优先级测试
+  （env>profile、会话 override>env、非法回退、双 profile 不同默认）。
+
+### Changed
+
+- 默认模式解析加入 Profile 档（代码/测试/README 三处一致）。
+- README：三档真实差异、Profile 配置示例、兼容矩阵、子代理边界表述。
+
+### Fixed
+
+- 删除随旧实现遗留的 `filterSkillBodyForMode` 正则过滤路径及其测试
+  （被结构化组合取代）。
+
+### Security
+
+- 无变化（0.1.6 的 eval-free 产物与 dev-tooling 边界保持）。
+
 ## Unreleased
 
 ### Security

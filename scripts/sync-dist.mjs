@@ -89,7 +89,9 @@ runBin('tsc', ['-b', 'packages/community/ponytail/tsconfig.json', '--force'], ch
 //    inlines dsh-llm/dsh-skill so the bundle only depends on cordis).
 runBin('tsdown', [], pkgDir)
 
-// 3. Copy the FULL artifact: both runtime bundles and every declaration file.
+// 3. Copy the FULL artifact: both runtime bundles, every declaration file,
+//    AND the source mirror (the repo commits src/ for review; keeping it in
+//    lockstep is what lets verify:dist's src↔d.ts drift check run here).
 //    The intermediate lib/types/*.js (and their maps) are tsc inputs for
 //    tsdown, not runtime code, and are deliberately not shipped.
 const srcLib = join(pkgDir, 'lib')
@@ -104,6 +106,16 @@ for (const entry of readdirSync(join(srcLib, 'types'))) {
     copied.push(`types/${entry}`)
   }
 }
+rmSync(join(repoRoot, 'src'), { recursive: true, force: true })
+mkdirSync(join(repoRoot, 'src'), { recursive: true })
+for (const entry of readdirSync(join(pkgDir, 'src'))) {
+  if (entry.endsWith('.ts')) {
+    const text = readFileSync(join(pkgDir, 'src', entry), 'utf8')
+      .replaceAll('@deepseek-ai/dsh-ponytail', '@mengyuly/dsh-ponytail')
+    writeFileSync(join(repoRoot, 'src', entry), text, 'utf8')
+    copied.push(`src/${entry}`)
+  }
+}
 console.log(`sync-dist: copied ${copied.join(', ')}`)
 
 // 4. Record build provenance from the checkout (real SHA, real toolchain).
@@ -114,9 +126,9 @@ if (!sourceCommit || !/^[0-9a-f]{40}$/.test(sourceCommit)) {
 }
 const sourceRepository = git(['remote', 'get-url', 'origin'])
   ?? 'https://github.com/deepseek-ai/deepseek-harness'
-const versionOf = (name) => {
+const versionOf = (name, explicitPath) => {
   try {
-    const manifest = JSON.parse(readFileSync(join(checkoutRoot, 'node_modules', name, 'package.json'), 'utf8'))
+    const manifest = JSON.parse(readFileSync(explicitPath ?? join(checkoutRoot, 'node_modules', name, 'package.json'), 'utf8'))
     return String(manifest.version ?? 'unknown')
   } catch {
     return 'unknown'
@@ -130,6 +142,7 @@ const provenance = {
     node: process.version,
     typescript: versionOf('typescript'),
     tsdown: versionOf('tsdown'),
+    cordis: versionOf('cordis', join(checkoutRoot, 'vendor', 'cordis', 'package.json')),
   },
 }
 writeFileSync(join(repoRoot, 'dist-provenance.json'), `${JSON.stringify(provenance, null, 2)}\n`, 'utf8')
