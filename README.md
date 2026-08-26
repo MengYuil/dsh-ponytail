@@ -49,7 +49,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   - `/ponytail-review` — 针对最近改动找过度工程，一行一条：位置 + 删什么 + 替代。
   - `/ponytail-audit` — 全仓库过度工程审计，排序清单。
   - `/ponytail-debt` — 收割所有 `ponytail:` 注释成债务账本。
-  - `/ponytail-gain` — 收益计分板（更少代码/更省成本/更快）。
+  - `/ponytail-gain` — 上游 Benchmark 参考计分板（代码减少；Token/成本/延迟效果取决于模型与任务，**非本适配版保证**）。
   - `/ponytail-help` — 参考卡。
 - **停用**：说 `stop ponytail` 或 `normal mode`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
 - **默认值优先级**（代码/测试/文档一致）：
@@ -70,15 +70,36 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 - **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，默认**不继承**本插件的 system-prompt；`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）**只用于筛选能进入本 Prompt 管线的子代理**，不是继承开关；DSH 当前没有公开的子代理派生/可继承 Prompt API，因此**未实现、也不宣称父子 Prompt 继承**（有官方 API 后再考虑只读快照传播）。非法正则告警一次并 fail-open。
 - **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警。
 
-## 效率
+## 效率（条件性收益，非保证）
 
-- 常驻注入：**lite ≈ 369 / full ≈ 420 / ultra ≈ 406 tokens**（结构化片段，不再是 ~1.3k）；`off` 归零；同模式字节级稳定，KV-cache 前缀命中。
-- 一次性技能 300–540 tokens 一个，零常驻开销。
-- 实测同任务 A/B：ponytail 臂 34 行 vs 完整实现臂 272 行，均标准库、均自测通过。
+Ponytail 会给每次模型请求增加一小段固定规则。它的收益是**有条件的**：
+当 Agent 容易过度设计时，减少的代码、工具调用和返工可能抵消甚至超过
+这部分开销；当任务本来已经很简单时，收益可能接近零，甚至出现额外输入
+开销。它不是"省 Token 开关"，也不保证跨模型省钱——某些推理模型可能因
+prompt 与推理开销变得更贵。
+
+本 DSH 适配版当前 Prompt 段实测大小（`npm run measure:prompt`，从真实
+`getPonytailInstructions()` 生成）：
+
+| 档位 | 字符数 | UTF-8 字节 | 说明 |
+|------|--------|-----------|------|
+| lite | 1474 | 1476 | 实测生成 |
+| full | 1678 | 1682 | 实测生成 |
+| ultra | 1625 | 1629 | 实测生成 |
+| off | 0 | 0 | 不注入 |
+
+这些是 **Prompt 体积测量，不是账单金额，也不是对所有模型成立的节省
+比例**（无统一 tokenizer，`measure:prompt` 输出中 `estimated_tokens` 为
+null；字符数/4 只是粗略估算）。同模式字节级稳定，KV-cache 前缀命中。
+
+**上游数据不是本 DSH 适配版的保证**：上游 Ponytail 的 single-shot
+（代码 −80~94%、成本 −42~75%、延迟 3.1–5.8×）与 agentic（LOC −54% 等）
+结果仅作参考；DSH 适配版**未建立**稳定的 Token/成本/延迟节省率。DSH
+Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 
 ## 已知限制
 
-- 档位差异在**规则语义**上（见上），三者体积相近（≤ 满档 ×1.25）。
+- 档位差异在**规则语义**上（见上），三者 Prompt 体积相近（实测见上表）。
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
 - 用户 `config.json` 热更新；`PONYTAIL_DEFAULT_MODE` 与 Profile config 需重启生效。
 - 发行 `lib/` 是预编译产物；改源码请回主仓重建后同步。

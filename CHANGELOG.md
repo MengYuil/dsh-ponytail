@@ -48,12 +48,62 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.2.2] - 2026-08-26
+
+### Changed
+
+- **`/ponytail-gain` 数据口径修正**：收益数字明确标注为 **Upstream
+  reference**（Single-shot：5 任务 × 3 Claude 模型，代码 −80~94%、成本
+  −42~75%、延迟 3.1–5.8×；Agentic：真实 Claude Code 会话 × 12 功能任务，
+  LOC ~−54%、Token ~−22%、成本 ~−20%、时间 ~−27%、过度构建 −60~94%、
+  安全 100%），并注明「These are upstream Ponytail results, not measured
+  guarantees for this DSH adapter」「Savings depend on model and workload」
+  「Already-minimal tasks may show little or no savings」「Some reasoning
+  models may become more expensive」。新增 **DSH adapter status**：当前
+  smoke 只支持方向性有效，稳定 Token/成本/延迟节省尚未建立。Skill 描述
+  由 "less code, less cost, more speed" 改为 "upstream benchmark reference;
+  less unnecessary code, while token, cost, and latency effects depend on
+  model and workload"。
+- **主 `ponytail` Skill 自动调用策略**：`invocation` 改为
+  `modelInvocable: false, userInvocable: true`——指针卡不再进入模型侧
+  Skill Catalog（普通编码任务不再重复加载），`/ponytail` 等命令与用户侧
+  入口不受影响（命令经 `ctx.skills.get` 加载，不被 modelInvocable 门控；
+  语义依据 `@deepseek-ai/dsh-skill` 的 `isModelInvocable`/`isUserInvocable`
+  与 `tool-skill` 的 Catalog 过滤源码核实）。whenToUse/描述缩小为
+  「仅在用户询问激活/模式/配置/帮助时使用」。
+- **`/ponytail-help` 模式选择指导**：新增 Lite/Full/Ultra/Off 使用建议
+  （中英双语）与声明「Ponytail is not a guaranteed token-saving switch. It
+  trades a small fixed prompt cost for a chance to reduce unnecessary work.
+  Do not default every task to Ultra.」
+- **README 效率说明改为条件性收益**：移除旧的 369/420/406 手工 Token 数字
+  与无出处的 A/B 行；改为实测 Prompt 大小（`npm run measure:prompt`）+
+  「收益有条件、非保证」说明 + 「上游数据不是本 DSH 适配版的保证」。
+- **新增 `docs/dsh-smoke-summary.md`**：DSH Smoke Benchmark 摘要与证据
+  边界（环境、三轮结果、Token/成本口径、动态验证阻断、结论分级），
+  明确 directional smoke test；不把 runs 原始数据打进 npm 包。
+
+### Added
+
+- **`scripts/measure-prompt.mjs` + `npm run measure:prompt`**：从真实
+  `getPonytailInstructions()` 生成四档 Prompt，输出 chars/bytes 与
+  `estimated_tokens`（无统一 tokenizer 时为 null；off 恒为 0），明确
+  「rough estimate only; tokenizer and model dependent」，不冒充 Provider
+  Usage。Node ≥ 22.18（原生 type stripping）。
+
 ### Fixed
 
 - `sync:dist` 成功提示文字补上 `src/`（状态检查列表早已覆盖，仅提示遗漏）。
 - CHANGELOG 重复的 `## Unreleased` 标题清理；0.2.1 的 Security 内容归档归位。
 - 模块顶部注释补齐完整优先级链（会话 override > env > Profile > 用户
   config > full），与 modes.ts / content.ts / README / d.ts 一致。
+
+### Tests
+
+- Gain Skill：含 upstream reference、区分 single-shot/agentic、不声称
+  DSH 适配版保证节省、提示简单任务可能不省与模型差异。
+- 主 `ponytail` Skill：仍为指针卡、不含旧 Full 规则；`modelInvocable:
+  false` / `userInvocable: true`；五个一次性 Skill 的 invocation 不变。
+- Prompt：off 为空、三档互不相同、均含安全边界与明确验收项。
 
 ## [0.2.0] - 2026-08-24
 
