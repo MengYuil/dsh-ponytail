@@ -27,10 +27,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - ponytail 技能指针卡断言（不含旧 Full 规则）。
 - `/ponytail default` 同值覆盖源提示测试。
-- 62 项测试全绿（Ubuntu/Windows × Node 22/24 CI 矩阵）。
-
-## Unreleased
-## Unreleased
+- 62 tests passed in the authoritative deepseek-harness monorepo package
+  (`packages/community/ponytail/tests/`: instructions.spec.ts + ponytail.spec.ts；
+  本机实测 62 passed；CI 矩阵见 `.github/workflows/ci.yml`，Ubuntu/Windows ×
+  Node 22/24)。此数字来自权威 monorepo 包测试，不是发行镜像
+  `verify:dist` / `verify:pack` / `test:consumer` / `test:regressions` 的合计。
 
 ### Security
 
@@ -44,6 +45,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `prepare` lifecycle hooks from silently invoking development tooling.
 - Classified repository-only `child_process` findings as accepted
   development-tooling risk.
+
+## Unreleased
+
+### Fixed
+
+- `sync:dist` 成功提示文字补上 `src/`（状态检查列表早已覆盖，仅提示遗漏）。
+- CHANGELOG 重复的 `## Unreleased` 标题清理；0.2.1 的 Security 内容归档归位。
+- 模块顶部注释补齐完整优先级链（会话 override > env > Profile > 用户
+  config > full），与 modes.ts / content.ts / README / d.ts 一致。
 
 ## [0.2.0] - 2026-08-24
 

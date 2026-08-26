@@ -7,8 +7,9 @@
  * `agent/pre-step` listener honors the plain-text deactivation phrases.
  *
  * Mode is session-scoped and held in memory; the configured default resolves
- * from `PONYTAIL_DEFAULT_MODE` then `~/.config/ponytail/config.json` (see
- * {@link readDefaultMode}).
+ * from `PONYTAIL_DEFAULT_MODE`, then the Cordis profile `defaultMode`, then
+ * `~/.config/ponytail/config.json` (see {@link readDefaultMode}), then
+ * `full`. A session override via `/ponytail` outranks all of them.
  *
  * @module @mengyuly/dsh-ponytail
  */

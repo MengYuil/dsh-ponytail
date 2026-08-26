@@ -164,5 +164,5 @@ const gitStatus = spawnSync('git', ['status', '--porcelain', '--', 'src', 'lib',
 })
 const dirty = (gitStatus.stdout ?? '').trim()
 console.log(dirty === ''
-  ? 'sync-dist: lib/ and dist-provenance.json are identical to the committed artifacts.'
-  : `sync-dist: artifacts changed — commit the regenerated files now:\n${dirty}`)
+  ? 'sync-dist: src/, lib/, and dist-provenance.json are identical to the committed artifacts.'
+  : `sync-dist: src/, lib/, or dist-provenance.json changed — commit the regenerated files now:\n${dirty}`)
