@@ -5,7 +5,9 @@
 [![npm](https://img.shields.io/npm/v/@mengyuly/dsh-ponytail)](https://www.npmjs.com/package/@mengyuly/dsh-ponytail)
 [![dsh.so security](https://www.dsh.so/badge/dsh-ponytail-4.svg)](https://www.dsh.so/artifact/dsh-ponytail-4/)
 
-把 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)（「懒惰资深开发者」最少代码心智）移植成 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件。功能与效率与上游一致：7 级阶梯规则集每轮注入、强度切换、`/ponytail-*` 斜杠命令。
+把 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)（「懒惰资深开发者」最少代码心智）适配成 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件：提供 7 级极简决策阶梯、Lite / Full / Ultra / Off 会话级模式，以及 `/ponytail-*` 系列技能与命令。
+
+本项目对齐上游的核心工程理念与主要功能，但 DSH 的模型循环、Prompt 组装和工具机制不同；**上游 Benchmark 仅作参考，不代表本适配版具有相同的 Token、成本或延迟收益**（详见「效率（条件性收益，非保证）」）。
 
 ## 安装
 
