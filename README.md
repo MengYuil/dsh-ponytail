@@ -14,7 +14,7 @@
 - **稳定 latest 下载**（资产名固定，每次 Release 不变）：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
 - **固定版本下载**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.2.2/mengyuly-dsh-ponytail-0.2.2.tgz`
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.1/mengyuly-dsh-ponytail-0.3.1.tgz`
 
 说明：
 
@@ -36,8 +36,9 @@ dsh plugin --profile web add link:$(pwd)
 # 方式二：GitHub 直接装
 dsh plugin --profile web add github:MengYuil/dsh-ponytail
 
-# 方式三：Release 打包件（先下 tgz）
-dsh plugin --profile web add file:./mengyuly-dsh-ponytail-0.1.3.tgz
+# 方式三：Release 打包件（先下 tgz——latest 固定资产名恒定）
+#   https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz
+dsh plugin --profile web add file:./mengyuly-dsh-ponytail.tgz
 
 # 方式四：npm
 dsh plugin --profile web add @mengyuly/dsh-ponytail
