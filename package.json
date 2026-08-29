@@ -53,6 +53,8 @@
     "verify:pack": "node scripts/verify-pack.mjs",
     "test:consumer": "node scripts/test-consumer.mjs",
     "test:regressions": "node scripts/test-regressions.mjs",
-    "measure:prompt": "node scripts/measure-prompt.mjs"
+    "measure:prompt": "node scripts/measure-prompt.mjs",
+    "release:assets": "node scripts/release-assets.mjs",
+    "check:release-links": "node scripts/check-release-links.mjs"
   }
 }

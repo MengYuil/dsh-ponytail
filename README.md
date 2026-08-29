@@ -9,6 +9,22 @@
 
 本项目对齐上游的核心工程理念与主要功能，但 DSH 的模型循环、Prompt 组装和工具机制不同；**上游 Benchmark 仅作参考，不代表本适配版具有相同的 Token、成本或延迟收益**（详见「效率（条件性收益，非保证）」）。
 
+## GitHub Release 下载
+
+- **稳定 latest 下载**（资产名固定，每次 Release 不变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
+- **固定版本下载**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.2.2/mengyuly-dsh-ponytail-0.2.2.tgz`
+
+说明：
+
+- `latest` 指向最新 GitHub Release；固定资产名 `mengyuly-dsh-ponytail.tgz`
+  在每个 Release 中保持不变，因此该 URL 不会因版本号变化而失效。
+- 需要完全可复现的构建时，请使用**固定版本 Release 链接**（按 Tag 下载）。
+- npm 安装仍走 npm Registry 或 `dsh plugin` 命令；latest Tarball 适合快速
+  安装体验，**不适合作为不可变依赖**。
+- 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`npm run release:assets`）。
+
 ## 安装
 
 装进某个 profile（`web` 可换成 `tui`/自定义名）：

@@ -25,5 +25,7 @@ jobs:
         run: npm run test:regressions
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (tarball contents, version match, installed smoke)"
         run: npm run verify:pack
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Static guard: no version-pinned latest release links"
+        run: node scripts/check-release-links.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: npm run test:consumer
