@@ -59,6 +59,7 @@ const E2E_RULES = [
   '- Do not redesign transport, storage, API shape, or persistence when the task only asks for a local UI or behavior change.',
   '- A locally smaller implementation that changes the system contract is not smaller overall.',
   '- Prefer the smallest complete change across the real data flow: input \u2192 state \u2192 validation \u2192 payload \u2192 API \u2192 persistence \u2192 response/UI.',
+  '- It does not mean every layer must change: the change must be complete across the layers it touches.',
   '- Do not leave a UI-only field, unused state, placeholder path, or disconnected payload merely because it produces a smaller diff.',
 ].join('\n')
 

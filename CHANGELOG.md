@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.3.1] - 2026-08-26
+
+### Changed
+
+- E2E 规则组补充防误解澄清句：「It does not mean every layer must change:
+  the change must be complete across the layers it touches.」——防止把
+  「最小完整端到端变更」误解为必须修改所有层（真实数据流那条的补充）。
+  其余规则文本不变；审计确认 Full/Ultra 的 E2E 组、Lite 架构保护句、
+  Gain 四段口径、主 Skill 指针卡与 modelInvocable:false、docs smoke
+  口径（null≠0/环境阻断/静态vs动态/高方差）均已符合，未重复修改。
+
 ## [0.3.0] - 2026-08-26
 
 ### Added
