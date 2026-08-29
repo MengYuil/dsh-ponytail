@@ -5,10 +5,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
-### Fixed
+## [0.3.0] - 2026-08-26
 
-- Corrected CHANGELOG release ordering and clarified that upstream benchmark
-  results are references rather than guaranteed DSH-adapter outcomes.
+### Added
+
+- **最小正确端到端变更规则**（`instructions.ts` 新增共享 `E2E_RULES` 组，Full
+  与 Ultra 均包含）：优先「与现有架构兼容的最小完整端到端变更」，而非单个
+  文件最少行数；创建组件/抽象/协议/迁移/传输格式/存储格式/依赖前先检查仓库
+  既有路径并保留现有契约；任务只要求局部 UI 或行为变化时不得重新设计传输、
+  存储、API 形态或持久化；局部更小但改变系统契约的实现并不更小；沿真实数据
+  流（input → state → validation → payload → API → persistence →
+  response/UI）取最小完整变更；不得仅为更小的 diff 留下 UI-only 字段、
+  未用状态、占位路径或断开的 payload。
+- **Safety 边界扩充**：真实端到端数据流、非平凡改动的必要测试、根因修复
+  （全模式共享，不可删除）。
+
+### Changed
+
+- **Lite / Full / Ultra 规则边界重定义**（结构化组合保持，恢复旧的
+  Markdown 正则过滤）：
+  - Lite：完成所有明确要求与验收标准；优先复用/标准库/原生/已装依赖；可
+    一句话提示更简方案但不挑战明确要求；**不得仅为减少行数改变现有架构**；
+    非平凡改动保留最小合理校验。
+  - Full：完整七级阶梯；默认最短正确实现并**优先最小完整端到端变更**；偏好
+    删除与复用，但不牺牲正确性、安全、测试、明确要求或现有系统契约。
+  - Ultra：先删后加；主动质疑投机性功能、缓存、抽象、配置、**迁移、传输
+    变化、存储变化**与新依赖；**取最小完整端到端变更而非最小局部 diff**；
+    不为减少行数改变现有契约；不是无脑拒绝（明确要求/安全/校验/无障碍/
+    数据保护/验收标准仍强制）。
+  - off 仍返回空字符串；同模式输出字节级稳定；三档体积仍远低于旧版 ~1.3k
+    tokens。
+- **`/ponytail-gain` 口径重排**：固定顺序「1. Upstream agentic reference →
+  2. Upstream single-shot reference → 3. DSH adapter status → 4. Honesty
+  boundary」；节省条件补充为「Savings depend on model, workload, prompt
+  caching, tool usage, and execution path」；诚实边界明确「缺失的 cost
+  字段（null）不是 0 成本」。Skill 描述与 Help 表格中的
+  "less code, less cost, more speed" 改为
+  "less unnecessary work; token, cost, and latency effects depend on model
+  and workload"。
+- README 顶部定位改为「极简编码原则与相关 Skill 的适配」，明确 DSH 的模型
+  循环、Prompt 组装、Skill 机制与工具调用不同。
+
+### Tests
+
+- instructions：Full/Ultra 含端到端规则组；Lite 含架构保护句；三档互异；
+  off 为空；安全边界含端到端数据流/必要测试/根因修复。
+- gain：四段顺序、节省条件、null≠0、无 "less code, less cost, more speed"。
 
 ## [0.2.2] - 2026-08-26
 

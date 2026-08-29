@@ -180,63 +180,43 @@ export const GAIN_SKILL_BODY = `
 Display this scoreboard when invoked. One-shot: do NOT change mode, write flag
 files, or persist anything.
 
-## Upstream reference
-
-The figures below are the UPSTREAM Ponytail project's published benchmark
-results, not measured guarantees for this DSH adapter.
-
 These are upstream Ponytail results, not measured guarantees for this DSH
-adapter. Savings depend on model and workload. Already-minimal tasks may show
-little or no savings. Some reasoning models may become more expensive because
-of prompt and reasoning overhead.
+adapter.
 
-### Single-shot reference
+Savings depend on model, workload, prompt caching, tool usage, and execution
+path. Already-minimal tasks may show little or no savings. Some reasoning
+models may become more expensive because prompt and reasoning overhead can
+exceed the saved output.
+
+## 1. Upstream agentic reference
+
+Real Claude Code sessions on real repositories; 12 feature tasks:
+
+- Source LOC: ~\u221254%
+- Tokens: ~\u221222%
+- Cost: ~\u221220%
+- Time: ~\u221227%
+- Over-build tasks: \u221260\u201394%
+- Safety tests: 100%
+
+## 2. Upstream single-shot reference
 
 5 everyday tasks (email validator, debounce, CSV sum, countdown timer, rate
 limiter); 3 Claude models; single generation per task:
 
-- Lines of code: −80–94%
-- Cost: −42–75%
-- Latency: ~3.1–5.8× faster
+- Lines of code: \u221280\u201394%
+- Cost (Claude): \u221242\u201375%
+- Latency: ~3.1\u20135.8\u00d7 faster
 
-### Agentic reference
+## 3. DSH adapter status
 
-Real Claude Code sessions on real repositories; 12 feature tasks:
-
-- Source LOC: ~−54%
-- Tokens: ~−22%
-- Cost: ~−20%
-- Time: ~−27%
-- Over-build tasks: −60–94%
-- Safety tests: 100%
-
-### DSH adapter status
-
-Current DSH smoke tests support directional effectiveness only. Stable token,
+Current DSH smoke tests provide directional evidence only. Stable token,
 cost, and latency savings have not been established.
 
 See the repository's DSH smoke reports for limited, non-statistical
 directional evidence (docs/dsh-smoke-summary.md).
 
-## Scoreboard (upstream single-shot reference)
-
-Render plain ASCII bars. The bar length shows the measured range; the label
-carries the exact figure:
-
-\`\`\`
-  ponytail gain                     upstream single-shot reference
-
-  Lines of code   no-skill  ████████████████████  100%
-                  ponytail  █▌··················    6–20%   ▼ 80–94%
-  Cost            no-skill  ████████████████████  100%
-                  ponytail  █████▌···············    25–58%   ▼ 42–75%
-  Speed           ponytail  ▸ 3.1–5.8× faster
-
-  This repo:  /ponytail-debt  (shortcuts you deferred)
-              /ponytail-audit (what's still cuttable)
-\`\`\`
-
-## Honesty boundary
+## 4. Honesty boundary
 
 These are upstream benchmark medians, not this repo and not this DSH
 adapter. NEVER print a per-repo savings number ("you saved X lines/tokens
@@ -244,7 +224,8 @@ here"): the unbuilt version was never written, so there is no real baseline
 to subtract from in a live repo. The only real per-repo figures come from
 \`/ponytail-debt\` (a counted ledger), and this card points there instead of
 inventing one. Never claim "Ponytail always saves tokens/cost" or that this
-adapter reproduces the upstream percentages.
+adapter reproduces the upstream percentages. A missing cost figure (null) is
+not a zero cost.
 
 ## Boundaries
 
@@ -253,9 +234,9 @@ One-shot display. Edits nothing, changes no mode.
 `
 
 export const GAIN_DESCRIPTION
-  = 'Upstream benchmark reference; less unnecessary code, while token, cost, '
-  + 'and latency effects depend on model and workload. One-shot display, not '
-  + 'a persistent mode, and not a per-repo or DSH-adapter guarantee. '
+  = 'Less unnecessary work; token, cost, and latency effects depend on model '
+  + 'and workload. Upstream benchmark reference, not a DSH-adapter guarantee. '
+  + 'One-shot display, not a persistent mode, and not a per-repo number. '
   + 'Trigger: /ponytail-gain, "ponytail gain", "what does ponytail save", '
   + '"show ponytail impact", "ponytail scoreboard".'
 
@@ -304,7 +285,7 @@ task to Ultra.
 | **ponytail-review** | \`/ponytail-review\` | Over-engineering review: \`L42: yagni: factory, one product. Inline.\` |
 | **ponytail-audit** | \`/ponytail-audit\` | Whole-repo over-engineering audit: ranked list of what to delete. |
 | **ponytail-debt** | \`/ponytail-debt\` | Harvest \`ponytail:\` shortcut comments into a tracked ledger. |
-| **ponytail-gain** | \`/ponytail-gain\` | Measured-impact scoreboard: less code, less cost, more speed. |
+| **ponytail-gain** | \`/ponytail-gain\` | Upstream benchmark reference: less unnecessary work; token/cost/latency effects depend on model and workload. |
 | **ponytail-help** | \`/ponytail-help\` | This card. |
 
 You can also load any of these with the \`skill\` tool.

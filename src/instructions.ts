@@ -36,39 +36,58 @@ const SAFETY_BOUNDARIES = [
   '- Accessibility basics.',
   '- Explicit acceptance criteria the user asked for.',
   '- Understanding the problem and tracing the real flow first.',
+  '- The real end-to-end data flow: no UI-only field, unused state, placeholder path, or disconnected payload.',
+  '- Necessary tests for non-trivial changes.',
+  '- Root-cause fixes over symptom patches.',
   '- "Minimal diff" is not a substitute for "correct fix".',
 ].join('\n')
 
 /** Lite: complete the explicit ask; reuse; suggest, do not challenge. */
 const LITE_RULES = [
-  'Complete what is explicitly asked, including every acceptance criterion.',
-  'Prefer reuse, the standard library, native features, and installed dependencies.',
-  'You may name a simpler alternative in one line, but do not challenge or reject an explicit requirement.',
-  'Output may be a little more complete than full; never cut an acceptance item to save lines.',
+  'Complete everything explicitly requested, including every acceptance criterion.',
+  'Prefer existing code, standard-library features, native platform features, and already-installed dependencies.',
+  'You may mention a simpler alternative briefly, but do not challenge or reject an explicit requirement.',
+  'Do not change the existing architecture merely to reduce line count.',
+  'Keep the smallest reasonable validation for non-trivial changes.',
 ].join('\n')
 
-/** Full: the seven-rung ladder, shortest correct implementation by default. */
+/** Smallest complete end-to-end change: shared by Full and Ultra. */
+const E2E_RULES = [
+  'Smallest complete end-to-end change:',
+  '- Prefer the smallest complete end-to-end change compatible with the existing architecture, not merely the fewest lines in one file.',
+  '- Before creating a component, abstraction, protocol, migration, transport format, storage format, or dependency, inspect the repository\u2019s existing path and preserve its current contract.',
+  '- Do not redesign transport, storage, API shape, or persistence when the task only asks for a local UI or behavior change.',
+  '- A locally smaller implementation that changes the system contract is not smaller overall.',
+  '- Prefer the smallest complete change across the real data flow: input \u2192 state \u2192 validation \u2192 payload \u2192 API \u2192 persistence \u2192 response/UI.',
+  '- Do not leave a UI-only field, unused state, placeholder path, or disconnected payload merely because it produces a smaller diff.',
+].join('\n')
+
+/** Full: the seven-rung ladder plus the smallest complete end-to-end change. */
 const FULL_RULES = [
-  'The ladder — stop at the first rung that holds:',
+  'Use the complete ladder — stop at the first rung that holds:',
   '1. Does this need to exist at all? (YAGNI)',
   '2. Does it already exist in this codebase? Reuse it.',
   '3. Does the standard library do it? Use it.',
   '4. Does a native platform feature cover it? Use it.',
   '5. Does an already-installed dependency solve it? Use it.',
-  '6. Can this be one line? Make it one line.',
-  '7. Only then: the minimum code that works.',
-  'Default to the shortest correct implementation; prefer deletion and reuse.',
+  '6. Can the solution be reduced to a small expression? Make it that small.',
+  '7. Only then: write the minimum new implementation.',
+  'Default to the shortest correct implementation; prefer deletion and reuse, but do not trade away correctness, security, tests, explicit requirements, or the existing system contract.',
   'Fix root causes, not symptoms: one guard in the shared function beats a guard in every caller.',
+  '',
+  E2E_RULES,
 ].join('\n')
 
 /** Ultra: deletion-first YAGNI; challenge speculation, never requirements. */
 const ULTRA_RULES = [
-  'YAGNI extremist: default to deletion before addition.',
-  'Actively question speculative features, caches, abstractions, configuration, and new dependencies.',
-  'Prefer one-liners, the standard library, and native capabilities.',
-  'Minimize files, dependencies, and code — but never the safety boundaries or acceptance criteria above.',
-  'For a complex request: ship the minimal correct version first and state what the full version would require.',
-  'Ultra is not "refuse everything": honor explicit user requirements.',
+  'Delete before adding.',
+  'Actively question speculative features, caches, abstractions, configuration, migrations, transport changes, storage changes, and new dependencies.',
+  'Prefer the smallest complete end-to-end change, not the smallest local diff.',
+  'Do not change an existing contract merely to reduce lines.',
+  'For complex requests, ship the smallest correct complete version and state what would justify a larger version.',
+  'Ultra is not refusal: explicit requirements, safety, validation, accessibility, data protection, and acceptance criteria remain mandatory.',
+  '',
+  E2E_RULES,
 ].join('\n')
 
 const MODE_RULES: Record<Exclude<PonytailRuntimeMode, 'off'>, string> = {
