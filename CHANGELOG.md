@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.3.2] - 2026-08-31
+
+### Changed
+
+- Compressed the structured Lite/Full/Ultra prompt by merging shared end-to-end,
+  contract-preservation, disconnected-payload, and proportional-investigation rules;
+  the safety boundaries and Full seven-rung ladder remain intact. Lite also keeps
+  its non-challenge boundary and proportional investigation rule.
+- Fixed the version-pinned GitHub Release example to use the asset name actually
+  published by v0.3.1; release-link verification now rejects unpublished
+  versioned asset names.
+- Fixed invariant package-name synchronization and added a distribution guard;
+  normalized source file modes for publishable metadata.
+
 ## [0.3.1] - 2026-08-26
 
 ### Changed

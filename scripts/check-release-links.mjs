@@ -21,6 +21,7 @@ const SCAN = ['README.md', 'docs', '.github/workflows', 'scripts']
 const LATEST_FIXED = /releases\/latest\/download\/mengyuly-dsh-ponytail\.tgz/
 // a latest-download link whose asset name carries anything after the base name
 const LATEST_VERSIONED = /releases\/latest\/download\/mengyuly-dsh-ponytail(?:[^/\s)]*[0-9][^/\s)]*)?\.tgz/
+const TAG_VERSIONED = /releases\/download\/v\d+\.\d+\.\d+\/mengyuly-dsh-ponytail-\d+\.\d+\.\d+\.tgz/
 
 function filesUnder(dir) {
   const out = []
@@ -50,8 +51,8 @@ for (const file of scanFiles()) {
   const text = readFileSync(file, 'utf8')
   for (const line of text.split('\n')) {
     if (!line.includes('releases/')) continue
-    if (LATEST_VERSIONED.test(line) && !LATEST_FIXED.test(line)) {
-      console.error(`check-release-links: version-pinned latest link in ${relative(root, file)}:\n  ${line.trim()}`)
+    if ((LATEST_VERSIONED.test(line) && !LATEST_FIXED.test(line)) || TAG_VERSIONED.test(line)) {
+      console.error(`check-release-links: versioned asset link is not published in ${relative(root, file)}:\n  ${line.trim()}`)
       failures++
     }
   }

@@ -172,6 +172,9 @@ export async function runDistChecks() {
   // 6. Published runtime boundary: no install-time execution, no development
   //    scripts reachable from the shipped entry points.
   const manifest = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+  const invariant = readFileSync(join(repoRoot, 'lib', 'invariant.js'), 'utf8')
+  check(invariant.match(/PACKAGE_NAME = ["']([^"']+)["']/)?.[1] === manifest.name,
+    'lib/invariant.js PACKAGE_NAME must match package.json name')
   const scripts = manifest.scripts ?? {}
   for (const name of ['preinstall', 'install', 'postinstall']) {
     check(scripts[name] === undefined, `package.json must not define install lifecycle script: ${name}`)

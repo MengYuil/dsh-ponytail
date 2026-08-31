@@ -11,7 +11,7 @@
  * `~/.config/ponytail/config.json` (see {@link readDefaultMode}), then
  * `full`. A session override via `/ponytail` outranks all of them.
  *
- * @module @deepseek-ai/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 import type { Context } from '@deepseek-ai/cordis';
 export declare const name = "ponytail";

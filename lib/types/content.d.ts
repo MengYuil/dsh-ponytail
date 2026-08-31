@@ -6,7 +6,7 @@
  * section (see `instructions.ts`) and must not be duplicated here. The other
  * five skills ship verbatim as runtime skills.
  *
- * @module @deepseek-ai/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 import type { SkillRegistration } from '@deepseek-ai/dsh-skill';
 /** The always-on lazy-senior-dev ruleset: also registered as a loadable skill. */

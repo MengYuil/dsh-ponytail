@@ -13,8 +13,8 @@
 
 - **稳定 latest 下载**（资产名固定，每次 Release 不变）：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本下载**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.1/mengyuly-dsh-ponytail-0.3.1.tgz`
+- **固定版本下载**（按 Tag 不可变）：当前 Release 仅提供固定资产名，使用
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.1/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
@@ -86,7 +86,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
     ```
     例：`web → full`、`tui → lite`、`automation → off`。Profile 配置在插件初始化时读取（Cordis 无公开配置变更事件），**改后需重启该 profile**；非法值只告警一次并回退，不影响启动。用户 `config.json` 仍保持热更新。
   - **用户 config.json**（`~/.config/ponytail/config.json`，Windows `%APPDATA%\ponytail\config.json`）：`{"defaultMode": "lite"}`，热更新（~1s 轮询），非法内容保留上次合法值。
-- **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，默认**不继承**本插件的 system-prompt；`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）**只用于筛选能进入本 Prompt 管线的子代理**，不是继承开关；DSH 当前没有公开的子代理派生/可继承 Prompt API，因此**未实现、也不宣称父子 Prompt 继承**（有官方 API 后再考虑只读快照传播）。非法正则告警一次并 fail-open。
+- **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，但全局 system-prompt section 默认也会参与子代理的独立组装；这不是父代理 Prompt 或会话状态继承。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）只用于筛选能进入本 Prompt 管线的子代理，不是继承开关；无 preset 时不会被 matcher 排除。DSH 当前没有公开的父子 Prompt 继承 API，因此**不宣称父子 Prompt 继承**（有官方 API 后再考虑只读模式快照传播）。非法正则告警一次并 fail-open。
 - **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警。
 
 ## 效率（条件性收益，非保证）
@@ -102,9 +102,9 @@ prompt 与推理开销变得更贵。
 
 | 档位 | 字符数 | UTF-8 字节 | 说明 |
 |------|--------|-----------|------|
-| lite | 1744 | 1746 | 实测生成 |
-| full | 2975 | 2993 | 实测生成 |
-| ultra | 2818 | 2834 | 实测生成 |
+| lite | 1918 | 1920 | 实测生成 |
+| full | 3036 | 3052 | 实测生成 |
+| ultra | 2823 | 2839 | 实测生成 |
 | off | 0 | 0 | 不注入 |
 
 这些是 **Prompt 体积测量，不是账单金额，也不是对所有模型成立的节省

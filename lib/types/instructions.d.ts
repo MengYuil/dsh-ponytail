@@ -5,7 +5,7 @@
  * The three intensities therefore differ in their actual instructions, not
  * just in a table row.
  *
- * @module @deepseek-ai/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 import { type PonytailRuntimeMode } from './modes.ts';
 /**

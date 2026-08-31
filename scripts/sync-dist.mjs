@@ -99,10 +99,14 @@ const dstTypes = join(repoRoot, 'lib', 'types')
 rmSync(dstTypes, { recursive: true, force: true })
 mkdirSync(dstTypes, { recursive: true })
 const copied = ['index.js', 'invariant.js']
-for (const file of copied) copyFileSync(join(srcLib, file), join(repoRoot, 'lib', file))
+for (const file of copied) {
+  const text = readFileSync(join(srcLib, file), 'utf8')
+  writeFileSync(join(repoRoot, 'lib', file), text.replaceAll('@deepseek-ai/dsh-ponytail', '@mengyuly/dsh-ponytail'), 'utf8')
+}
 for (const entry of readdirSync(join(srcLib, 'types'))) {
   if (entry.endsWith('.d.ts')) {
-    copyFileSync(join(srcLib, 'types', entry), join(dstTypes, entry))
+    const text = readFileSync(join(srcLib, 'types', entry), 'utf8')
+    writeFileSync(join(dstTypes, entry), text.replaceAll('@deepseek-ai/dsh-ponytail', '@mengyuly/dsh-ponytail'), 'utf8')
     copied.push(`types/${entry}`)
   }
 }

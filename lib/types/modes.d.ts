@@ -6,7 +6,7 @@
  * level via the `/ponytail` command is session-scoped and lives in an
  * in-memory, per-agent {@link ModeStore}.
  *
- * @module @deepseek-ai/dsh-ponytail
+ * @module @mengyuly/dsh-ponytail
  */
 /** One settable runtime intensity. `review` is command-only and never a default. */
 export type PonytailRuntimeMode = 'off' | 'lite' | 'full' | 'ultra';
