@@ -10,14 +10,14 @@
  * is rejected. Version-pinned URLs under `releases/download/<tag>/...` are
  * allowed (they are immutable by tag).
  *
- * Scans: README.md, docs/**, .github/workflows/**, scripts/**.
+ * Scans: README.md, CHANGELOG.md, docs/**, .github/workflows/**, scripts/**.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join, relative, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
-const SCAN = ['README.md', 'docs', '.github/workflows', 'scripts']
+const SCAN = ['README.md', 'CHANGELOG.md', 'docs', '.github/workflows', 'scripts']
 const LATEST_FIXED = /releases\/latest\/download\/mengyuly-dsh-ponytail\.tgz/
 // a latest-download link whose asset name carries anything after the base name
 const LATEST_VERSIONED = /releases\/latest\/download\/mengyuly-dsh-ponytail(?:[^/\s)]*[0-9][^/\s)]*)?\.tgz/

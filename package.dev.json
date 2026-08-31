@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "sync:dist": "node scripts/sync-dist.mjs",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "verify:pack": "node scripts/verify-pack.mjs",
+    "test:consumer": "node scripts/test-consumer.mjs",
+    "test:regressions": "node scripts/test-regressions.mjs",
+    "measure:prompt": "node scripts/measure-prompt.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check:release-links": "node scripts/check-release-links.mjs",
+    "check:release-consistency": "node scripts/check-release-consistency.mjs",
+    "release:assets": "node scripts/release-assets.mjs"
+  }
+}

@@ -9,10 +9,13 @@
  *     wrong sourcePackage, and accepts a well-formed document.
  *  3. Spawn-failure diagnostics surface `result.error.message` when
  *     `status === null` (the Windows npm.cmd failure mode).
+ *  4. Release-consistency offline mode reports the local tag and never
+ *     claims remote freshness.
  */
 import assert from 'node:assert/strict'
 import { collectSourceMapViolations, validateProvenance } from './verify-dist.mjs'
 import { formatSpawnFailure } from './lib/run-command.mjs'
+import { runChecks } from './check-release-consistency.mjs'
 
 // 1. source-map regression check.
 assert.equal(
@@ -53,4 +56,12 @@ const message = formatSpawnFailure(
 assert.match(message, /status: null \(spawn failed or killed by a signal\)/, 'null status must be explained')
 assert.match(message, /spawn error: spawn npm ENOENT/, 'result.error.message must be included')
 
-console.log('test-regressions: OK (source-map policy, provenance validation, spawn-failure diagnostics)')
+// 4. Release-consistency script: offline mode validates the local tag without
+//    network and never claims remote freshness.
+const offline = await runChecks({ version: '0.3.2', offline: true })
+assert.equal(offline.local.freshness_verified, false, 'offline mode must not claim remote freshness')
+assert.equal(offline.npm.available, null, 'offline mode must not query npm')
+assert.equal(offline.github_release.available, null, 'offline mode must not query GitHub')
+assert.equal(offline.errors.length, 0, 'offline mode on a clean release checkout must have no errors')
+
+console.log('test-regressions: OK (source-map policy, provenance validation, spawn-failure diagnostics, release-consistency offline)')

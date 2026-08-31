@@ -11,19 +11,20 @@
 
 ## GitHub Release 下载
 
-- **稳定 latest 下载**（资产名固定，每次 Release 不变）：
+- **最新版（latest）**：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本下载**（按 Tag 不可变）：当前 Release 仅提供固定资产名，使用
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.1/mengyuly-dsh-ponytail.tgz`
+- **固定版本 v0.3.2**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.2/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
-- `latest` 指向最新 GitHub Release；固定资产名 `mengyuly-dsh-ponytail.tgz`
-  在每个 Release 中保持不变，因此该 URL 不会因版本号变化而失效。
-- 需要完全可复现的构建时，请使用**固定版本 Release 链接**（按 Tag 下载）。
-- npm 安装仍走 npm Registry 或 `dsh plugin` 命令；latest Tarball 适合快速
-  安装体验，**不适合作为不可变依赖**。
-- 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`npm run release:assets`）。
+- **latest**：适合快速安装体验，会随最新 Release 更新；固定资产名
+  `mengyuly-dsh-ponytail.tgz` 在每个 Release 中保持不变，因此该 URL
+  不会因版本号变化而失效，**不适合作为不可变依赖**。
+- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.3.2`），按 Tag
+  不可变；资产名同样为 `mengyuly-dsh-ponytail.tgz`。
+- npm 安装仍走 npm Registry 或 `dsh plugin` 命令。
+- 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`node scripts/release-assets.mjs`，仅仓库维护者）。
 
 ## 安装
 
@@ -48,7 +49,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 
 > `lib/index.js` 是自包含 bundle（已内联 `dsh-llm` / `dsh-skill`——npm 无兼容版本），运行时依赖两个已发布的 peer：`@deepseek-ai/cordis`（4.0.1）与 `@deepseek-ai/schemastery`（3.18.x）。`schemastery` 刻意保持外置而非内联：其 schema DSL 用 `new Function` 编译 `callback` 字符串，外置后**发行产物不含任何动态代码执行**（CI 有专门检查）。GitHub / tgz / npm 三种安装方式都不需要 dsh 源码树。
 
-> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`；改源码后用 `DSH_CHECKOUT=/path/to/deepseek-harness npm run sync:dist` 重建并同步完整 `lib/`（见下「发行维护」）。
+> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`；改源码后用 `DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs` 重建并同步完整 `lib/`（见下「发行维护」）。
 
 ## 功能
 
@@ -97,7 +98,7 @@ Ponytail 会给每次模型请求增加一小段固定规则。它的收益是**
 开销。它不是"省 Token 开关"，也不保证跨模型省钱——某些推理模型可能因
 prompt 与推理开销变得更贵。
 
-本 DSH 适配版当前 Prompt 段实测大小（`npm run measure:prompt`，从真实
+本 DSH 适配版当前 Prompt 段实测大小（`node scripts/measure-prompt.mjs`，从真实
 `getPonytailInstructions()` 生成）：
 
 | 档位 | 字符数 | UTF-8 字节 | 说明 |
@@ -146,23 +147,34 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 
 ## 发行维护
 
+> **以下命令仅限源码仓库维护者使用。** `scripts/` 目录有意**不进入 npm tarball**，
+> 因此安装发布的 npm 包后这些命令不可用——npm 包用户不需要运行任何维护检查，
+> 它们只在发布前由维护者和 CI 使用。发布包的 `package.json` 不暴露任何
+> `scripts/` 命令（无维护脚本入口、无安装生命周期钩子），由
+> `node scripts/verify-pack.mjs` 回归检查强制。
+
 - **权威源码**：deepseek-harness monorepo 的 `packages/community/ponytail`（本仓库是发行镜像，只随包发布构建产物）。
+- **维护者命令**（源码仓库内直接运行 `node scripts/<script>.mjs`；快捷清单见
+  `package.dev.json`）：
+  ```bash
+  node scripts/check-bundle.mjs        # Bundle 外部依赖白名单 + 无 new Function/eval
+  node scripts/verify-dist.mjs         # 静态一致性：src/d.ts 导出一致、关键签名、运行时导出、provenance
+  node scripts/verify-pack.mjs         # tarball 边界（含无 scripts/ 暴露回归检查）、版本、安装后 smoke
+  node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false 声明消费测试（对打包产物）
+  node scripts/test-regressions.mjs    # 验证工具自身的回归测试
+  node scripts/measure-prompt.mjs      # 各模式 Prompt 段体积（依赖未发布的 src/）
+  node scripts/check-release-links.mjs # README/CHANGELOG/docs 无版本化 latest 资产链接
+  node scripts/check-release-consistency.mjs --version <v>  # 四方发布一致性（git tag/npm/GitHub/provenance）
+  ```
 - **完整重新生成并同步 `lib/`**（JS 与声明必须作为同一产物同步，禁止只复制单个 JS 文件）：
   ```bash
-  DSH_CHECKOUT=/path/to/deepseek-harness npm run sync:dist
+  DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs
   ```
   该命令在权威 checkout 中重建（`tsc` 生成声明 + `tsdown` 打包运行时），同步 `lib/index.js`、`lib/invariant.js`、`lib/types/*.d.ts`，生成 `dist-provenance.json`（记录权威 checkout 的真实 commit SHA 与工具链版本），并自动执行一致性校验；产物有变化时会提示提交。**完整构建一致性由本命令在发布流程中完成——发行镜像 CI 不会重新构建权威 monorepo。**
-- **验证命令**（Linux / Windows 通用，跨平台进程调用见 `scripts/lib/run-command.mjs`）：
-  ```bash
-  npm run verify:dist      # 静态一致性：src/d.ts 导出一致、关键签名、主入口运行时导出、无 source map、provenance 合法
-  npm run verify:pack      # tarball 内容/版本、安装后 smoke（如实报告实际安装的依赖）
-  npm run test:consumer    # NodeNext + skipLibCheck:false 的声明消费测试（对打包产物）
-  npm run test:regressions # 验证工具自身的回归测试（source map 策略、provenance、spawn 诊断）
-  ```
 - **CI 能力边界（如实）**：CI（ubuntu + windows 矩阵）执行上述静态验证与打包/消费测试，但**不重新构建权威 monorepo**；`verify:dist` 是导出表面/签名/运行时导出的一致性检查，**不是**与权威构建的字节级等价证明——后者由 `sync:dist` 在发布流程中保证。
 - `dist-provenance.json` 随 npm 包发布，便于审计构建来源。
 - 本机验证时若 `npm_execpath` 指向其他包管理器（如 pnpm/yarn shim），脚本会自动回退到 PATH 上的 `npm`；临时目录失败时保留需设 `PONYTAIL_VERIFY_KEEP_TEMP=1`。
-- **安全**：`scripts/**` 仅用于开发/构建/发行验证，**不进入 npm tarball**、无安装生命周期钩子、运行时入口不引用；`child_process` 告警属于可接受的开发工具风险。详见 [SECURITY.md](SECURITY.md)。
+- **安全**：`scripts/**` 仅用于开发/构建/发行验证，**不进入 npm tarball**、无安装生命周期钩子、运行时入口不引用、发布包 `package.json` 不暴露这些维护命令；`child_process` 告警属于可接受的开发工具风险。详见 [SECURITY.md](SECURITY.md)。
 
 ## 许可
 

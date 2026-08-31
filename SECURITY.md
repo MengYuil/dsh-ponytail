@@ -16,8 +16,9 @@ scripts.
 `scripts/lib/run-command.mjs` and `scripts/sync-dist.mjs` use
 `node:child_process.spawnSync` to run local verification and build tools.
 
-They execute only when a maintainer explicitly runs the corresponding npm
-command. This is an intentional capability of local build tooling, not part of
+They execute only when a maintainer explicitly runs the corresponding
+repository-maintainer command (`node scripts/...`, see `package.dev.json`).
+This is an intentional capability of local build tooling, not part of
 the installed plugin runtime. Arguments are passed as arrays. Shell use is
 restricted to the Windows `npm.cmd` fallback and is not fed by plugin runtime
 input, model output, or network input. `DSH_CHECKOUT` is used only as a local
@@ -33,7 +34,7 @@ development-tooling risk, provided that:
 - runtime entries do not import it;
 - command arguments do not accept untrusted runtime input.
 
-CI verifies these boundaries (`npm run verify:dist`, `npm run verify:pack`).
+CI verifies these boundaries (`node scripts/verify-dist.mjs`, `node scripts/verify-pack.mjs`).
 
 ## Dynamic-code findings
 

@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Clarified that repository verification and release scripts are maintainer-only
+  and are intentionally excluded from the npm tarball.
+- Prevented the published package from exposing maintenance commands that are
+  unavailable after installation (`package.json` no longer carries the
+  `scripts/`-based commands; maintainers use `node scripts/<script>.mjs` with
+  the `package.dev.json` command list).
+- Added a regression check for the published package boundary
+  (no `scripts/` exposure, no install lifecycle hooks, entry targets exist).
+- Updated the fixed-version Release example to v0.3.2 while keeping the
+  stable versionless latest asset URL.
+- Added cross-channel release consistency checks for Git Tag, npm,
+  GitHub Release assets, tarball contents, and dist provenance.
+- Prevented stale local checkouts from being reported as validation of the
+  currently published version.
+
 ## [0.3.2] - 2026-08-31
 
 ### Changed

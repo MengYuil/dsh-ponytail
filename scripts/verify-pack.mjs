@@ -22,7 +22,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 import { runNpm, tempWork } from './lib/run-command.mjs'
+import { readTar } from './check-release-consistency.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
@@ -46,10 +48,42 @@ try {
   const paths = new Set(entry.files.map(f => f.path))
   for (const file of required) check(paths.has(file), `tarball missing ${file}`)
   // Development-only content must never ship in the tarball.
-  const DEV_DIRS = ['scripts', 'src', 'tests', 'test', 'tools']
+  const DEV_DIRS = ['scripts', 'src', 'tests', 'test', 'tools', '.github']
   for (const dir of DEV_DIRS) {
     check(![...paths].some(p => p === dir || p.startsWith(`${dir}/`)),
       `tarball must not contain development directory: ${dir}/`)
+  }
+
+  // The published package.json must not expose repository-maintainer commands:
+  // scripts/ is excluded from the tarball, so any `scripts` entry that invokes
+  // scripts/ would be an unavailable command after installation. No install
+  // lifecycle hooks may exist either.
+  const tarEntries = readTar(gunzipSync(readFileSync(tgz)))
+  const packedManifest = JSON.parse(tarEntries.get('package/package.json').data.toString('utf8'))
+  const packedScripts = packedManifest.scripts ?? {}
+  const lifecycle = ['preinstall', 'install', 'postinstall']
+  for (const name of lifecycle) {
+    check(packedScripts[name] === undefined,
+      `tarball package.json must not define install lifecycle script: ${name}`)
+  }
+  for (const [name, command] of Object.entries(packedScripts)) {
+    check(typeof command === 'string' && !/\bscripts\//.test(command),
+      `tarball package.json script "${name}" references scripts/ which is not published: ${command}`)
+  }
+  // Every main/types/exports target must exist inside the tarball.
+  const entryTargets = []
+  const collect = (value) => {
+    if (typeof value === 'string') entryTargets.push(value)
+    else if (value && typeof value === 'object') for (const v of Object.values(value)) collect(v)
+  }
+  collect(packedManifest.main)
+  collect(packedManifest.types)
+  collect(packedManifest.exports)
+  const allowedTargets = new Set(['package.json', 'cordis.patch.yml'])
+  for (const target of entryTargets) {
+    const normalized = target.startsWith('./') ? target.slice(2) : target
+    check(allowedTargets.has(normalized) || tarEntries.has(`package/${normalized}`),
+      `tarball package.json entry target does not exist in the tarball: ${target}`)
   }
 
   // Install into a clean dir; npm will also auto-install the declared peers.

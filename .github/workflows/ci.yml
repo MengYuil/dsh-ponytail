@@ -20,12 +20,14 @@ jobs:
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Bundle externals and manifest surface"
         run: node scripts/check-bundle.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Static dist consistency (src/d.ts exports, signatures, runtime exports, no source maps, provenance)"
-        run: npm run verify:dist
+        run: node scripts/verify-dist.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Verification tooling regression tests"
-        run: npm run test:regressions
+        run: node scripts/test-regressions.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (tarball contents, version match, installed smoke)"
-        run: npm run verify:pack
+        run: node scripts/verify-pack.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Static guard: no version-pinned latest release links"
         run: node scripts/check-release-links.mjs
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Release consistency script offline sanity"
+        run: node scripts/check-release-consistency.mjs --offline
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
-        run: npm run test:consumer
+        run: node scripts/test-consumer.mjs
