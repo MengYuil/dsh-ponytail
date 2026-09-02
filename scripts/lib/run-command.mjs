@@ -56,19 +56,27 @@ export function resolveNpmInvocation() {
 }
 
 /**
- * Escape one npm argument for Windows cmd.exe.
- *
- * When npm is started through the `npm.cmd` fallback the arguments travel
- * through `cmd.exe`, where `^` is the escape character: `@pkg@^1.0.0` would
- * silently arrive as the exact version `@pkg@1.0.0` (and fail to resolve when
- * that exact version does not exist). Doubling the caret (`^^`) yields a
- * literal `^` after cmd parsing. POSIX and the `process.execPath <cli>`
- * invocation path never go through a shell and need no escaping.
- * @param arg - one raw npm argument.
- * @returns the argument escaped for cmd.exe.
+ * Reject npm arguments that cmd.exe (the Windows npm.cmd path) would
+ * misparse. `^` is cmd's escape character and the batch file re-parses
+ * `%*`, so `@pkg@^3.18.0` silently becomes the exact version `@pkg@3.18.0`
+ * and fails with ERESOLVE when that exact version does not exist. Carets
+ * cannot be escaped reliably through the batch path — callers must use
+ * caret-free ranges (`@pkg@3`) or exact versions.
+ * @param args - npm arguments.
+ * @param platform - process.platform value; only win32 is affected.
+ * @param shell - whether the invocation goes through a shell.
+ * @throws a clear Error naming the offending argument.
  */
-export function escapeCmdArg(arg) {
-  return arg.replace(/\^/g, '^^')
+export function assertCaretFreeArgs(args, platform, shell) {
+  if (!shell || platform !== 'win32') return
+  const caret = args.find(arg => typeof arg === 'string' && arg.includes('^'))
+  if (caret !== undefined) {
+    throw new Error(
+      `runNpm: argument ${JSON.stringify(caret)} contains "^", which cmd.exe ` +
+      '(npm.cmd) would misparse. Use a caret-free version range (e.g. "@pkg@3" ' +
+      'or an exact version) instead.',
+    )
+  }
 }
 
 /**
@@ -79,8 +87,8 @@ export function escapeCmdArg(arg) {
  */
 export function runNpm(args, cwd) {
   const { command, prefix, shell } = resolveNpmInvocation()
-  const escaped = shell && process.platform === 'win32' ? args.map(escapeCmdArg) : args
-  const result = spawnSync(command, [...prefix, ...escaped], { cwd, encoding: 'utf8', shell })
+  assertCaretFreeArgs(args, process.platform, shell)
+  const result = spawnSync(command, [...prefix, ...args], { cwd, encoding: 'utf8', shell })
   if (result.status !== 0) {
     throw new Error(formatSpawnFailure(result, command, [...prefix, ...args], cwd))
   }

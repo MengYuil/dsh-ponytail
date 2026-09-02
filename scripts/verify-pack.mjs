@@ -88,8 +88,11 @@ try {
 
   // Install into a clean dir; npm will also auto-install the declared peers.
   // The bundle's runtime externals are cordis + schemastery, so both are
-  // installed explicitly from the registry for the smoke.
-  runNpm(['install', tgz, '@deepseek-ai/cordis@^4.0.1', '@deepseek-ai/schemastery@^3.18.0'], work.dir)
+  // installed explicitly from the registry for the smoke. Caret-free ranges
+  // on purpose: on Windows npm.cmd re-parses arguments through cmd.exe, where
+  // `^` would be eaten and `@pkg@^3.18.0` would become the nonexistent exact
+  // version `@pkg@3.18.0` (see scripts/lib/run-command.mjs).
+  runNpm(['install', tgz, '@deepseek-ai/cordis@4', '@deepseek-ai/schemastery@3'], work.dir)
 
   // Report what actually got installed (npm auto-resolves all declared peers).
   const installedPkgDir = join(work.dir, 'node_modules', pkg.name)
