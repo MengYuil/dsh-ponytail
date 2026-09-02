@@ -14,7 +14,7 @@
  */
 import assert from 'node:assert/strict'
 import { collectSourceMapViolations, validateProvenance } from './verify-dist.mjs'
-import { formatSpawnFailure } from './lib/run-command.mjs'
+import { escapeCmdArg, formatSpawnFailure } from './lib/run-command.mjs'
 import { runChecks } from './check-release-consistency.mjs'
 
 // 1. source-map regression check.
@@ -56,6 +56,15 @@ const message = formatSpawnFailure(
 assert.match(message, /status: null \(spawn failed or killed by a signal\)/, 'null status must be explained')
 assert.match(message, /spawn error: spawn npm ENOENT/, 'result.error.message must be included')
 
+// 3b. Windows cmd.exe escaping: `^` in npm version ranges must survive the
+//     npm.cmd shell path (otherwise `@pkg@^3.18.0` becomes the exact version
+//     `@pkg@3.18.0` and ERESOLVEs when that exact version does not exist).
+assert.equal(escapeCmdArg('@deepseek-ai/schemastery@^3.18.0'), '@deepseek-ai/schemastery@^^3.18.0',
+  'carets must be doubled for cmd.exe')
+assert.equal(escapeCmdArg('install'), 'install', 'plain arguments must pass through unchanged')
+assert.equal(escapeCmdArg('@deepseek-ai/cordis@^4.0.1'), '@deepseek-ai/cordis@^^4.0.1',
+  'caret ranges must be escaped for npm.cmd')
+
 // 4. Release-consistency script: offline mode validates the local tag without
 //    network and never claims remote freshness.
 const offline = await runChecks({ version: '0.3.2', offline: true })
@@ -64,4 +73,4 @@ assert.equal(offline.npm.available, null, 'offline mode must not query npm')
 assert.equal(offline.github_release.available, null, 'offline mode must not query GitHub')
 assert.equal(offline.errors.length, 0, 'offline mode on a clean release checkout must have no errors')
 
-console.log('test-regressions: OK (source-map policy, provenance validation, spawn-failure diagnostics, release-consistency offline)')
+console.log('test-regressions: OK (source-map policy, provenance validation, spawn-failure diagnostics, cmd escaping, release-consistency offline)')

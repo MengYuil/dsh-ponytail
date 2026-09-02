@@ -56,6 +56,22 @@ export function resolveNpmInvocation() {
 }
 
 /**
+ * Escape one npm argument for Windows cmd.exe.
+ *
+ * When npm is started through the `npm.cmd` fallback the arguments travel
+ * through `cmd.exe`, where `^` is the escape character: `@pkg@^1.0.0` would
+ * silently arrive as the exact version `@pkg@1.0.0` (and fail to resolve when
+ * that exact version does not exist). Doubling the caret (`^^`) yields a
+ * literal `^` after cmd parsing. POSIX and the `process.execPath <cli>`
+ * invocation path never go through a shell and need no escaping.
+ * @param arg - one raw npm argument.
+ * @returns the argument escaped for cmd.exe.
+ */
+export function escapeCmdArg(arg) {
+  return arg.replace(/\^/g, '^^')
+}
+
+/**
  * Run npm with a structured failure instead of a bare stderr snippet.
  * @param args - npm arguments (never a single shell string).
  * @param cwd - working directory for the child.
@@ -63,7 +79,8 @@ export function resolveNpmInvocation() {
  */
 export function runNpm(args, cwd) {
   const { command, prefix, shell } = resolveNpmInvocation()
-  const result = spawnSync(command, [...prefix, ...args], { cwd, encoding: 'utf8', shell })
+  const escaped = shell && process.platform === 'win32' ? args.map(escapeCmdArg) : args
+  const result = spawnSync(command, [...prefix, ...escaped], { cwd, encoding: 'utf8', shell })
   if (result.status !== 0) {
     throw new Error(formatSpawnFailure(result, command, [...prefix, ...args], cwd))
   }
