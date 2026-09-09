@@ -5,13 +5,13 @@ import { ponytailSkills } from '../src/content.ts'
 import { getPonytailInstructions } from '../src/instructions.ts'
 import { isDeactivationCommand, ModeStore } from '../src/modes.ts'
 
-const expectedBytes = { lite: 1920, full: 3052, ultra: 2839, off: 0 }
+const promptBudgets = { lite: 1920, full: 3052, ultra: 2839, off: 0 }
 const prompts = Object.fromEntries(
-  Object.keys(expectedBytes).map(mode => [mode, getPonytailInstructions(mode)]),
+  Object.keys(promptBudgets).map(mode => [mode, getPonytailInstructions(mode)]),
 )
 
-for (const [mode, expected] of Object.entries(expectedBytes)) {
-  assert.equal(Buffer.byteLength(prompts[mode]), expected, `${mode} prompt bytes must not drift`)
+for (const [mode, budget] of Object.entries(promptBudgets)) {
+  assert.ok(Buffer.byteLength(prompts[mode]) <= budget, `${mode} prompt must not exceed its previous size`)
 }
 assert.equal(prompts.off, '', 'off mode must inject nothing')
 assert.equal(new Set([prompts.lite, prompts.full, prompts.ultra]).size, 3, 'active modes must remain distinct')
@@ -20,7 +20,15 @@ for (const mode of ['lite', 'full', 'ultra']) {
   assert.match(prompts[mode], /Error handling that prevents data loss/, `${mode} must preserve data-loss protection`)
   assert.match(prompts[mode], /Necessary tests for non-trivial changes/, `${mode} must preserve testing`)
   assert.match(prompts[mode], /Root-cause fixes over symptom patches/, `${mode} must preserve root-cause fixes`)
+  assert.match(prompts[mode], /observable done condition/, `${mode} must define an observable outcome before editing`)
+  assert.match(prompts[mode], /Resolve uncertainty with evidence/, `${mode} must investigate instead of guess`)
+  assert.match(prompts[mode], /inspect the final diff/, `${mode} must review its actual changes`)
+  assert.match(prompts[mode], /Do not weaken a test/, `${mode} must diagnose failed validation honestly`)
+  assert.match(prompts[mode], /Report only verified results/, `${mode} must not overclaim outcomes`)
 }
+assert.match(prompts.lite, /Execute the direct request without ceremony/, 'lite must optimize for direct execution')
+assert.match(prompts.full, /stop at the first rung that holds/, 'full must keep the reuse-first decision ladder')
+assert.match(prompts.ultra, /Require evidence before adding/, 'ultra must make deletion-first decisions evidence-based')
 
 for (const command of [
   'stop ponytail', 'NORMAL MODE!',
@@ -76,6 +84,8 @@ for (const marker of [
   '停止 ponytail', 'Evidence: <observable reason>', 'safe-delete|verify-first',
   'rg -n --hidden', 'The built-in fallback is', '/ponytail reset',
   'Ponytail session override cleared', 'Ponytail mode: ${current} (${source})',
+  'observable done condition', 'Resolve uncertainty with evidence',
+  'inspect the final diff', 'Do not weaken a test', 'Report only verified results',
 ]) {
   assert.ok(bundle.includes(marker), `shipped bundle must contain ${JSON.stringify(marker)}`)
 }

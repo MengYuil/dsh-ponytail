@@ -5,10 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- Reworked the always-on rules into an outcome-driven execution loop: define
+  observable completion, resolve uncertainty from evidence, make the smallest
+  complete change, run the narrowest relevant check, inspect the final diff,
+  and report only verified results. Lite now emphasizes direct execution;
+  Ultra requires evidence before adding code. All three prompts are smaller.
+
 ### Fixed
 
-- Improved Ponytail itself without changing the always-on Lite/Full/Ultra
-  prompts: Chinese whole-message deactivation is supported; review and audit
+- Improved the surrounding controls and one-shot skills: Chinese whole-message
+  deactivation is supported; review and audit
   findings require observable code evidence; debt scans exclude generated
   trees; `/ponytail reset` restores the configured default; status reports
   whether the current mode is a session override or configured default.
