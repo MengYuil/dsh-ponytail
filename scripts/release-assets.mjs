@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import { createRequire } from 'node:module'
+import { runNpm } from './lib/run-command.mjs'
 
 const require = createRequire(import.meta.url)
 const repoRoot = resolve(import.meta.dirname, '..')
@@ -48,15 +49,6 @@ const MUST_NOT_HAVE = [
   'package/test/',
   'package/tools/',
 ]
-
-function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { cwd: repoRoot, encoding: 'utf8', ...opts })
-  if (r.error) throw new Error(`${cmd} spawn failed: ${r.error.message}`)
-  if (r.status !== 0) {
-    throw new Error(`${cmd} ${args.join(' ')} failed (${r.status}): ${(r.stderr || r.stdout).slice(0, 400)}`)
-  }
-  return r
-}
 
 /** Parse a gzip tarball into { path -> Buffer } (ustar format, no deps). */
 function readTar(buffer) {
@@ -102,7 +94,7 @@ function main() {
   const uploadTag = process.argv.includes('--upload') ? process.argv[process.argv.indexOf('--upload') + 1] : null
   const tmp = mkdtempSync(join(tmpdir(), 'ponytail-release-'))
   try {
-    const packed = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', tmp]).stdout)
+    const packed = JSON.parse(runNpm(['pack', '--json', '--pack-destination', tmp], repoRoot).stdout)
     const info = Array.isArray(packed) ? packed[0] : packed
     const versioned = join(tmp, info.filename) // filename comes from npm pack --json
     const fixed = join(repoRoot, FIXED_NAME)
