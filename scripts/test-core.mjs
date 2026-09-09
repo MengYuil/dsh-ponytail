@@ -18,13 +18,15 @@ assert.equal(new Set([prompts.lite, prompts.full, prompts.ultra]).size, 3, 'acti
 for (const mode of ['lite', 'full', 'ultra']) {
   assert.match(prompts[mode], /Input validation at trust boundaries/, `${mode} must preserve input validation`)
   assert.match(prompts[mode], /Error handling that prevents data loss/, `${mode} must preserve data-loss protection`)
-  assert.match(prompts[mode], /Necessary tests for non-trivial changes/, `${mode} must preserve testing`)
+  assert.match(prompts[mode], /one minimal runnable check/, `${mode} must require exactly one minimal check`)
+  assert.match(prompts[mode], /no framework or fixtures unless asked/, `${mode} must not overbuild test infrastructure`)
   assert.match(prompts[mode], /Root-cause fixes over symptom patches/, `${mode} must preserve root-cause fixes`)
   assert.match(prompts[mode], /observable done condition/, `${mode} must define an observable outcome before editing`)
   assert.match(prompts[mode], /Resolve uncertainty with evidence/, `${mode} must investigate instead of guess`)
   assert.match(prompts[mode], /inspect the final diff/, `${mode} must review its actual changes`)
   assert.match(prompts[mode], /Do not weaken a test/, `${mode} must diagnose failed validation honestly`)
   assert.match(prompts[mode], /Report only verified results/, `${mode} must not overclaim outcomes`)
+  assert.match(prompts[mode], /ladder is a reflex, not a research project/, `${mode} must keep the ladder lightweight`)
 }
 assert.match(prompts.lite, /Execute the direct request without ceremony/, 'lite must optimize for direct execution')
 assert.match(prompts.full, /stop at the first rung that holds/, 'full must keep the reuse-first decision ladder')
@@ -86,6 +88,8 @@ for (const marker of [
   'Ponytail session override cleared', 'Ponytail mode: ${current} (${source})',
   'observable done condition', 'Resolve uncertainty with evidence',
   'inspect the final diff', 'Do not weaken a test', 'Report only verified results',
+  'one minimal runnable check', 'no framework or fixtures unless asked',
+  'ladder is a reflex, not a research project',
 ]) {
   assert.ok(bundle.includes(marker), `shipped bundle must contain ${JSON.stringify(marker)}`)
 }

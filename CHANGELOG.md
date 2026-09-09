@@ -11,7 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   observable completion, resolve uncertainty from evidence, make the smallest
   complete change, run the narrowest relevant check, inspect the final diff,
   and report only verified results. Lite now emphasizes direct execution;
-  Ultra requires evidence before adding code. All three prompts are smaller.
+  Ultra requires evidence before adding code. Restored upstream's guard that
+  non-trivial logic leaves exactly one minimal runnable check, without adding
+  a test framework or fixtures, and made the ladder a reflex rather than a
+  research project. All three prompts remain below their previous byte sizes.
 
 ### Fixed
 
