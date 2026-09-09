@@ -36,8 +36,6 @@ try {
   const entry0 = Array.isArray(packedJson) ? packedJson[0] : packedJson
   const tgz = isAbsolute(entry0.filename) ? entry0.filename : join(work.dir, entry0.filename)
 
-  // Caret-free ranges on purpose: npm.cmd on Windows re-parses arguments
-  // through cmd.exe, which would eat `^` (see scripts/lib/run-command.mjs).
   runNpm(['install', tgz,
     '@deepseek-ai/cordis@4', 'typescript@5', '@types/node@24'], work.dir)
 

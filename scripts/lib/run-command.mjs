@@ -9,25 +9,25 @@
  *
  * The child_process capability here is the intentional, inherent local
  * execution permission of build tooling — it is NOT part of the installed
- * plugin runtime attack surface. Arguments are passed as arrays; shell use is
- * restricted to the Windows `npm.cmd` fallback; nothing in this module accepts
- * plugin-runtime, model, or network input. See SECURITY.md.
+ * plugin runtime attack surface. Arguments are passed as arrays without a
+ * shell; nothing in this module accepts plugin-runtime, model, or network
+ * input. See SECURITY.md.
  *
  * `npm` on Windows is `npm.cmd`, a cmd script — `spawnSync('npm', ...)`
  * without a shell cannot start it (spawn error, `status === null`). The
  * reliable invocation is Node itself running npm's own CLI entry:
  * `process.execPath <npm_execpath> ...` — `npm_execpath` is always set inside
- * an `npm run` environment. Outside one, fall back to `npm.cmd` (Windows,
- * with a shell) or `npm` (POSIX).
+ * an `npm run` environment. Outside one, use npm's CLI beside the active Node
+ * executable on Windows, or `npm` from PATH on POSIX.
  *
  * Everything here is stdlib-only and deliberately small.
  */
 // nosemgrep: node-child-process — dev-only build/verification tooling; excluded from the npm tarball, no install lifecycle hook, unreachable from runtime (see SECURITY.md)
 // NOSONAR: dev-only build/verification tooling (see SECURITY.md)
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 /** Bounded tail length for diagnostics, so CI logs cannot blow up. */
 const TAIL = 4 * 1024
@@ -39,8 +39,9 @@ const TAIL = 4 * 1024
  * spawning `process.execPath <npm_execpath>` is the reliable cross-platform
  * invocation. An inherited `npm_execpath` can also point at ANOTHER package
  * manager (e.g. a pnpm/yarn shim environment leaks `pnpm.mjs` here), whose
- * flag set differs from npm's; in that case — or when it is absent — fall back
- * to `npm`/`npm.cmd` from PATH.
+ * flag set differs from npm's; in that case — or when it is absent — use npm's
+ * CLI beside the active Node executable on Windows, or `npm` from PATH on
+ * POSIX. Invoking the CLI through Node avoids shell argument concatenation.
  * @returns `{ command, prefix, shell }` — spawn `command` with `[...prefix, ...args]`.
  */
 export function resolveNpmInvocation() {
@@ -49,34 +50,13 @@ export function resolveNpmInvocation() {
     return { command: process.execPath, prefix: [npmExecPath], shell: false }
   }
   if (process.platform === 'win32') {
-    // Explicit reason for a shell: .cmd files only run through cmd.exe.
-    return { command: 'npm.cmd', prefix: [], shell: true }
+    const npmCli = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+    if (existsSync(npmCli)) {
+      return { command: process.execPath, prefix: [npmCli], shell: false }
+    }
+    throw new Error(`runNpm: npm CLI not found beside Node at ${JSON.stringify(npmCli)}`)
   }
   return { command: 'npm', prefix: [], shell: false }
-}
-
-/**
- * Reject npm arguments that cmd.exe (the Windows npm.cmd path) would
- * misparse. `^` is cmd's escape character and the batch file re-parses
- * `%*`, so `@pkg@^3.18.0` silently becomes the exact version `@pkg@3.18.0`
- * and fails with ERESOLVE when that exact version does not exist. Carets
- * cannot be escaped reliably through the batch path — callers must use
- * caret-free ranges (`@pkg@3`) or exact versions.
- * @param args - npm arguments.
- * @param platform - process.platform value; only win32 is affected.
- * @param shell - whether the invocation goes through a shell.
- * @throws a clear Error naming the offending argument.
- */
-export function assertCaretFreeArgs(args, platform, shell) {
-  if (!shell || platform !== 'win32') return
-  const caret = args.find(arg => typeof arg === 'string' && arg.includes('^'))
-  if (caret !== undefined) {
-    throw new Error(
-      `runNpm: argument ${JSON.stringify(caret)} contains "^", which cmd.exe ` +
-      '(npm.cmd) would misparse. Use a caret-free version range (e.g. "@pkg@3" ' +
-      'or an exact version) instead.',
-    )
-  }
 }
 
 /**
@@ -87,7 +67,6 @@ export function assertCaretFreeArgs(args, platform, shell) {
  */
 export function runNpm(args, cwd) {
   const { command, prefix, shell } = resolveNpmInvocation()
-  assertCaretFreeArgs(args, process.platform, shell)
   const result = spawnSync(command, [...prefix, ...args], { cwd, encoding: 'utf8', shell })
   if (result.status !== 0) {
     throw new Error(formatSpawnFailure(result, command, [...prefix, ...args], cwd))

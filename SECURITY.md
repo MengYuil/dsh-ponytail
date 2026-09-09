@@ -19,10 +19,13 @@ scripts.
 They execute only when a maintainer explicitly runs the corresponding
 repository-maintainer command (`node scripts/...`, see `package.dev.json`).
 This is an intentional capability of local build tooling, not part of
-the installed plugin runtime. Arguments are passed as arrays. Shell use is
-restricted to the Windows `npm.cmd` fallback and is not fed by plugin runtime
-input, model output, or network input. `DSH_CHECKOUT` is used only as a local
-working directory / path resolution target — never as shell code.
+the installed plugin runtime. Arguments are passed as arrays. npm verification
+commands run without a shell on every platform; Windows invokes npm's CLI
+through the active Node executable. The distribution sync script uses a shell
+only for fixed checkout-local build-tool launchers on Windows. No command is
+fed by plugin runtime input, model output, or network input. `DSH_CHECKOUT` is
+used only as a local working directory / path resolution target — never as
+shell code.
 
 ## Static-analysis disposition
 

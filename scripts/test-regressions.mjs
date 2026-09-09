@@ -8,13 +8,13 @@
  *  2. `dist-provenance.json` validation rejects a non-SHA sourceCommit and a
  *     wrong sourcePackage, and accepts a well-formed document.
  *  3. Spawn-failure diagnostics surface `result.error.message` when
- *     `status === null` (the Windows npm.cmd failure mode).
+ *     `status === null`, and npm maintenance commands stay shell-less.
  *  4. Release-consistency offline mode reports the local tag and never
  *     claims remote freshness.
  */
 import assert from 'node:assert/strict'
 import { collectSourceMapViolations, validateProvenance } from './verify-dist.mjs'
-import { assertCaretFreeArgs, formatSpawnFailure } from './lib/run-command.mjs'
+import { formatSpawnFailure, resolveNpmInvocation } from './lib/run-command.mjs'
 import { runChecks } from './check-release-consistency.mjs'
 
 // 1. source-map regression check.
@@ -56,24 +56,11 @@ const message = formatSpawnFailure(
 assert.match(message, /status: null \(spawn failed or killed by a signal\)/, 'null status must be explained')
 assert.match(message, /spawn error: spawn npm ENOENT/, 'result.error.message must be included')
 
-// 3b. Caret guard: version ranges with `^` must be rejected on the Windows
-//     npm.cmd path (cmd.exe eats `^`), never silently misparsed.
-assert.throws(
-  () => assertCaretFreeArgs(['install', 'x.tgz', '@deepseek-ai/schemastery@^3.18.0'], 'win32', true),
-  /contains "\^"/,
-  'caret version ranges must be rejected on the npm.cmd path',
-)
-assert.doesNotThrow(
-  () => assertCaretFreeArgs(['install', 'x.tgz', '@deepseek-ai/schemastery@3'], 'win32', true),
-  'caret-free ranges must pass on the npm.cmd path',
-)
-assert.doesNotThrow(
-  () => assertCaretFreeArgs(['install', 'x.tgz', '@deepseek-ai/schemastery@^3.18.0'], 'linux', true),
-  'caret ranges are fine outside win32',
-)
-assert.doesNotThrow(
-  () => assertCaretFreeArgs(['install', 'x.tgz', '@deepseek-ai/schemastery@^3.18.0'], 'win32', false),
-  'caret ranges are fine on the shell-less invocation path',
+// 3b. npm maintenance commands must never use shell argument concatenation.
+assert.equal(
+  resolveNpmInvocation().shell,
+  false,
+  'npm invocation must not use a shell',
 )
 
 // 4. Release-consistency script: offline mode validates the local tag without
@@ -84,4 +71,4 @@ assert.equal(offline.npm.available, null, 'offline mode must not query npm')
 assert.equal(offline.github_release.available, null, 'offline mode must not query GitHub')
 assert.equal(offline.errors.length, 0, 'offline mode on a clean release checkout must have no errors')
 
-console.log('test-regressions: OK (source-map policy, provenance validation, spawn-failure diagnostics, caret guard, release-consistency offline)')
+console.log('test-regressions: OK (source-map policy, provenance validation, shell-less npm, spawn-failure diagnostics, release-consistency offline)')

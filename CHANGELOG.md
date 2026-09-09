@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Removed the Windows `npm.cmd` shell fallback from verification tooling;
+  npm now runs through the active Node executable without shell argument
+  concatenation or Node's `DEP0190` warning.
 - Clarified that repository verification and release scripts are maintainer-only
   and are intentionally excluded from the npm tarball.
 - Prevented the published package from exposing maintenance commands that are
