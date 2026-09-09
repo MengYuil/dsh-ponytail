@@ -62,16 +62,17 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   - `off`：完全不注入。
   - 档位**会话级**（会话 A 不影响会话 B，会话结束自动释放）。
   - 裸 `/ponytail`：已启用时只报告；`off` 时恢复到有效默认档（默认也是 `off` 则回 `full`）。
-  - `/ponytail status`：只查询、永不修改。
+  - `/ponytail status`：只查询、永不修改，并显示当前模式来自会话覆盖还是配置默认值。
+  - `/ponytail reset`：清除当前会话覆盖，重新跟随有效配置默认值。
   - `/ponytail lite|full|ultra|off`：显式切换。
   - `/ponytail default <mode>`：持久化默认值到**用户级配置文件**（env/Profile 仍优先，命令分别提示 saved 与 effective）。
 - **一次性技能**（用哪个载哪个，不进常驻 prompt）：
-  - `/ponytail-review` — 针对最近改动找过度工程，一行一条：位置 + 删什么 + 替代。
-  - `/ponytail-audit` — 全仓库过度工程审计，排序清单。
+  - `/ponytail-review` — 针对最近改动找过度工程；每条包含位置、替代方案和实际调用证据，不猜测精确收益。
+  - `/ponytail-audit` — 全仓库过度工程审计；区分可安全删除与需要先验证的候选，最多返回 10 条高价值发现。
   - `/ponytail-debt` — 收割所有 `ponytail:` 注释成债务账本。
   - `/ponytail-gain` — 上游 Benchmark 参考计分板（代码减少；Token/成本/延迟效果取决于模型与任务，**非本适配版保证**）。
   - `/ponytail-help` — 参考卡。
-- **停用**：说 `stop ponytail` 或 `normal mode`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
+- **停用**：说 `stop ponytail`、`normal mode`、`停止 ponytail`、`关闭 ponytail`、`普通模式` 或 `正常模式`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
 - **默认值优先级**（代码/测试/文档一致）：
   ```
   会话 override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > 用户 config.json > full
@@ -162,6 +163,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
   node scripts/verify-pack.mjs         # tarball 边界（含无 scripts/ 暴露回归检查）、版本、安装后 smoke
   node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false 声明消费测试（对打包产物）
   node scripts/test-regressions.mjs    # 验证工具自身的回归测试
+  node scripts/test-core.mjs           # 核心 Prompt 字节、安全边界、模式与 Skill 表面
   node scripts/measure-prompt.mjs      # 各模式 Prompt 段体积（依赖未发布的 src/）
   node scripts/check-release-links.mjs # README/CHANGELOG/docs 无版本化 latest 资产链接
   node scripts/check-release-consistency.mjs --version <v>  # 四方发布一致性（git tag/npm/GitHub/provenance）

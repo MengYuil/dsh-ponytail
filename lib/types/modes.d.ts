@@ -84,6 +84,8 @@ export declare class ModeStore {
     private readonly modes;
     /** The mode in force for one agent, or the configured default. */
     modeFor(agentId: string, fallback: PonytailRuntimeMode): PonytailRuntimeMode;
+    /** Whether this session currently overrides the configured default. */
+    has(agentId: string): boolean;
     /** Set the mode for one agent's session (session-scoped, survives until changed or disposal). */
     set(agentId: string, mode: PonytailRuntimeMode): void;
     /** Forget a session-scoped override so the next lookup returns the default. */

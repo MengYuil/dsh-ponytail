@@ -23,6 +23,8 @@ jobs:
         run: node scripts/verify-dist.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Verification tooling regression tests"
         run: node scripts/test-regressions.mjs
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Ponytail core behavior invariants"
+        run: node scripts/test-core.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (tarball contents, version match, installed smoke)"
         run: node scripts/verify-pack.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Static guard: no version-pinned latest release links"

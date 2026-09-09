@@ -109,6 +109,51 @@ try {
     && typeof mod.containsDeactivation === 'function' && typeof mod.messageText === 'function',
   'installed bundle does not expose the plugin shape')
   check(JSON.stringify(mod.inject) === JSON.stringify(['systemPrompt', 'skills']), 'installed bundle inject mismatch')
+  check(mod.containsDeactivation([{ content: [{ type: 'text', text: '停止 ponytail。' }] }]),
+    'installed bundle does not recognize Chinese deactivation')
+  check(!mod.containsDeactivation([{ content: [{ type: 'text', text: '请增加“停止 ponytail”按钮' }] }]),
+    'installed bundle deactivates on an embedded phrase')
+
+  // Exercise the real installed command handler with a minimal Cordis-shaped
+  // context: status must expose the source, and reset must clear an override.
+  const commands = new Map()
+  const cleanups = []
+  const fakeCtx = {
+    logger: { warn() {} },
+    effect(factory) { cleanups.push(factory()) },
+    on() {},
+    systemPrompt: { section() {} },
+    skills: { register() {} },
+    inject(_deps, install) {
+      install({ commands: { register(command) { commands.set(command.name, command.handler) } } })
+    },
+  }
+  const previousDefault = process.env.PONYTAIL_DEFAULT_MODE
+  process.env.PONYTAIL_DEFAULT_MODE = 'lite'
+  try {
+    mod.apply(fakeCtx, {})
+    const ponytail = commands.get('ponytail')
+    check(typeof ponytail === 'function', 'installed bundle did not register /ponytail')
+    const steered = []
+    const agent = {
+      id: 'verify-pack-session',
+      session: { header: { cwd: work.dir } },
+      steer(message) { steered.push(message) },
+    }
+    check(ponytail({ agent, rawInput: 'status' }).text.includes('configured default'),
+      'status does not identify the configured default')
+    ponytail({ agent, rawInput: 'ultra' })
+    check(ponytail({ agent, rawInput: 'status' }).text.includes('session override'),
+      'status does not identify a session override')
+    check(ponytail({ agent, rawInput: 'reset' }).text.includes('Effective mode: lite'),
+      'reset does not restore the configured default')
+    check(ponytail({ agent, rawInput: 'status' }).text.includes('configured default'),
+      'reset did not clear the session override')
+  } finally {
+    for (const cleanup of cleanups.reverse()) cleanup?.()
+    if (previousDefault === undefined) delete process.env.PONYTAIL_DEFAULT_MODE
+    else process.env.PONYTAIL_DEFAULT_MODE = previousDefault
+  }
   check(existsSync(join(installedPkgDir, 'lib', 'types', 'modes.d.ts')), 'installed package missing modes.d.ts')
 } finally {
   work.cleanup()

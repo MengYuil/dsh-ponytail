@@ -34,13 +34,13 @@ export const PONYTAIL_DESCRIPTION
   + 'activation, modes, configuration, or help. Coding tasks already receive '
   + 'the active ruleset from the system prompt.'
 export const REVIEW_SKILL_BODY = `
-Review diffs for unnecessary complexity. One line per finding: location, what
-to cut, what replaces it. The diff's best outcome is getting shorter.
+Review the current diff for unnecessary complexity. Inspect affected callers
+and tests first. Report only when code evidence shows the replacement preserves
+required behavior.
 
 ## Format
 
-\`L<line>: <tag> <what>. <replacement>.\`, or \`<file>:L<line>: ...\` for
-multi-file diffs.
+\`<file>:L<start>-<end>: <tag> <what>. Replacement: <simpler form>. Evidence: <observable reason>.\`
 
 Tags:
 
@@ -50,26 +50,14 @@ Tags:
 - \`yagni:\` abstraction with one implementation, config nobody sets, layer with one caller.
 - \`shrink:\` same logic, fewer lines. Show the shorter form.
 
-## Examples
-
-❌ "This EmailValidator class might be more complex than necessary, have you
-considered whether all these validation rules are needed at this stage?"
-
-✅ \`L12-38: stdlib: 27-line validator class. "@" in email, 1 line, real validation is the confirmation mail.\`
-
-✅ \`L4: native: moment.js imported for one format call. Intl.DateTimeFormat, 0 deps.\`
-
-✅ \`repo.py:L88: yagni: AbstractRepository with one implementation. Inline it until a second one exists.\`
-
-✅ \`L52-71: delete: retry wrapper around an idempotent local call. Nothing replaces it.\`
-
-✅ \`L30-44: shrink: manual loop builds dict. dict(zip(keys, values)), 1 line.\`
+Evidence must name an actual caller count, unused export, duplicate branch, or
+equivalent stdlib/native behavior. A name that merely looks abstract is not
+evidence. If preserving behavior is uncertain, omit the finding.
 
 ## Scoring
 
-End with the only metric that matters: \`net: -<N> lines possible.\`
-
-If there is nothing to cut, say \`Lean already. Ship.\` and stop.
+End with \`net: -<N> lines countable.\` only when concrete ranges make the total
+countable; otherwise say \`net: uncounted.\` Nothing to cut: \`Lean already. Ship.\`
 
 ## Boundaries
 
@@ -91,29 +79,27 @@ export const REVIEW_DESCRIPTION
   + 'focused review, this one only hunts complexity.'
 
 export const AUDIT_SKILL_BODY = `
-ponytail-review, repo-wide. Scan the whole tree instead of a diff. Rank
-findings biggest cut first.
+Audit repository complexity. Skip generated, vendored, dependency, and build
+output. Inspect manifests, callers, and tests. Return the top 10 findings.
 
-## Tags
+## Format
 
-Same as ponytail-review:
+\`<safe-delete|verify-first> <tag> <what>. Replace: <simpler form>. Evidence: <path:line + observed use>.\`
 
-- \`delete:\` dead code, unused flexibility, speculative feature. Replacement: nothing.
-- \`stdlib:\` hand-rolled thing the standard library ships. Name the function.
-- \`native:\` dependency or code doing what the platform already does. Name the feature.
-- \`yagni:\` abstraction with one implementation, config nobody sets, layer with one caller.
-- \`shrink:\` same logic, fewer lines. Show the shorter form.
+- \`safe-delete\`: no required consumer or behavior is lost.
+- \`verify-first\`: consumers may remain; name the check needed before deletion.
 
-## Hunt
+Tags:
 
-Deps the stdlib or platform already ships, single-implementation interfaces,
-factories with one product, wrappers that only delegate, files exporting one
-thing, dead flags and config, hand-rolled stdlib.
+- \`delete:\` dead code or speculative flexibility.
+- \`stdlib:\` hand-rolled standard-library behavior.
+- \`native:\` dependency or code replaced by a platform feature.
+- \`yagni:\` one-use abstraction, unset config, or one-caller layer.
+- \`shrink:\` identical behavior in fewer lines.
 
-## Output
-
-One line per finding, ranked: \`<tag> <what to cut>. <replacement>. [path]\`.
-End with \`net: -<N> lines, -<M> deps possible.\` Nothing to cut: \`Lean already. Ship.\`
+Count only concrete ranges and manifest entries. End with
+\`net: -<N> lines, -<M> deps countable.\` Use \`uncounted\` for either unknown.
+Nothing to cut: \`Lean already. Ship.\`
 
 ## Boundaries
 
@@ -132,19 +118,19 @@ export const AUDIT_DESCRIPTION
   + '/ponytail-audit. One-shot report, does not apply fixes.'
 
 export const DEBT_SKILL_BODY = `
-Every deliberate ponytail shortcut is marked with a \`ponytail:\` comment naming
-its ceiling and upgrade path. This collects them into one ledger so a deferral
-can't quietly become permanent.
+Collect \`ponytail:\` shortcut comments into a debt ledger. Each should name its
+ceiling and upgrade path.
 
 ## Scan
 
-Grep the repo for comment markers, skipping \`node_modules\`, \`.git\`, and build
-output:
+Prefer ripgrep and exclude generated or dependency trees:
 
-\`grep -rnE '(#|//) ?ponytail:' .\`  (add other comment prefixes if your stack uses them)
+\`rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' --glob '!lib/**' --glob '!dist/**' --glob '!build/**' '(#|//) ?ponytail:' .\`
 
-Each hit is one ledger row. The comment prefix keeps prose that merely mentions
-the convention out of the ledger.
+If \`rg\` is unavailable, scan tracked files only:
+\`git grep -n -E '(#|//) ?ponytail:'\`
+
+Each hit is one row; the comment prefix excludes prose mentions.
 
 ## Output
 
@@ -152,9 +138,9 @@ One row per marker, grouped by file:
 
 \`<file>:<line>, <what was simplified>. ceiling: <the limit named>. upgrade: <the trigger to revisit>.\`
 
-The convention is \`ponytail: <ceiling>, <upgrade path>\`, so pull the ceiling
-and the trigger straight from the comment. Want an owner per row too? add
-\`git blame -L<line>,<line>\`.
+The convention is \`ponytail: <ceiling>, <upgrade path>\`; copy both from the
+comment. Add an owner only when requested, using
+\`git blame -L<line>,<line> <file>\`.
 
 Flag the rot risk: any \`ponytail:\` comment that names no upgrade path or
 trigger gets a \`no-trigger\` tag, those are the ones that silently rot.
@@ -241,8 +227,7 @@ export const GAIN_DESCRIPTION
   + '"show ponytail impact", "ponytail scoreboard".'
 
 export const HELP_SKILL_BODY = `
-Display this reference card when invoked. One-shot, do NOT change mode,
-write flag files, or persist anything.
+Display this one-shot reference card. Do not change mode or persist anything.
 
 ## Levels
 
@@ -288,19 +273,17 @@ task to Ultra.
 | **ponytail-gain** | \`/ponytail-gain\` | Upstream benchmark reference: less unnecessary work; token/cost/latency effects depend on model and workload. |
 | **ponytail-help** | \`/ponytail-help\` | This card. |
 
-You can also load any of these with the \`skill\` tool.
-
 ## Deactivate
 
-Say "stop ponytail" or "normal mode". Resume anytime with \`/ponytail\` —
-it re-enables at the effective default (or \`full\` when that is off too).
-\`/ponytail status\` only shows the current level, never changes it.
-\`/ponytail off\` also works. Level is session-scoped; a new session starts
-from the configured default.
+Say "stop ponytail", "normal mode", "停止 ponytail", or "正常模式".
+\`/ponytail\` re-enables at the effective default (or \`full\` if it is \`off\`).
+\`/ponytail reset\` clears the session override and follows the configured default.
+\`/ponytail status\` reports mode and source; \`/ponytail off\` disables it.
 
 ## Configure Default Mode
 
-Default mode = \`full\`, auto-active every session. Change it:
+The built-in fallback is \`full\`; check the effective mode with
+\`/ponytail status\`. Change the default:
 
 **Environment variable** (highest priority):
 \`\`\`bash

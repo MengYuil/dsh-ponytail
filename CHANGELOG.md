@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Improved Ponytail itself without changing the always-on Lite/Full/Ultra
+  prompts: Chinese whole-message deactivation is supported; review and audit
+  findings require observable code evidence; debt scans exclude generated
+  trees; `/ponytail reset` restores the configured default; status reports
+  whether the current mode is a session override or configured default.
+- Added a core behavior gate that locks prompt bytes, safety invariants,
+  deactivation behavior, runtime skill surface, and shipped-bundle markers.
 - Removed the Windows `npm.cmd` shell fallback from verification tooling;
   npm now runs through the active Node executable without shell argument
   concatenation or Node's `DEP0190` warning.

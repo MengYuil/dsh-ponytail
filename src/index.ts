@@ -116,7 +116,7 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
   commandCtx.commands.register({
     name: 'ponytail',
     description: 'Set or show Ponytail lazy senior dev intensity',
-    input: { hint: '[status|default <mode>|lite|full|ultra|off]' },
+    input: { hint: '[status|reset|default <mode>|lite|full|ultra|off]' },
     handler: ({ agent, rawInput }): CommandResult => {
       const input = rawInput.trim().toLowerCase()
       const [head, ...rest] = input.split(/\s+/).filter(Boolean)
@@ -160,7 +160,29 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
       // `/ponytail status` is a pure query: report, never modify.
       if (input === 'status') {
         const current = modeFor(deps, agent)
-        return { kind: 'success', text: `Ponytail mode: ${current}. Use /ponytail lite|full|ultra|off.` }
+        const source = deps.store.has(sessionKey(agent)) ? 'session override' : 'configured default'
+        return { kind: 'success', text: `Ponytail mode: ${current} (${source}). Use /ponytail reset|lite|full|ultra|off.` }
+      }
+
+      // `/ponytail reset` removes the session override and follows the
+      // effective configured default again.
+      if (input === 'reset') {
+        const key = sessionKey(agent)
+        const changed = deps.store.has(key)
+        deps.store.clear(key)
+        const current = deps.defaultMode()
+        if (changed) {
+          agent.steer(createUserMessage({
+            content: [{ type: 'text', text: modeNotice(current) }],
+            source: { kind: 'plugin', plugin: name },
+          }))
+        }
+        return {
+          kind: 'success',
+          text: changed
+            ? `Ponytail session override cleared. Effective mode: ${current}.`
+            : `Ponytail already follows the configured default: ${current}.`,
+        }
       }
 
       // Bare `/ponytail` reports the mode in force; when the session is off it
@@ -188,12 +210,12 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
           content: [{ type: 'text', text: `PONYTAIL MODE ACTIVE — level: ${current}` }],
           source: { kind: 'plugin', plugin: name },
         }))
-        return { kind: 'success', text: `Ponytail mode: ${current}. Use /ponytail lite|full|ultra|off.` }
+        return { kind: 'success', text: `Ponytail mode: ${current}. Use /ponytail reset|lite|full|ultra|off.` }
       }
 
       const mode = normalizeRuntimeMode(input)
       if (!mode) {
-        return { kind: 'error', text: 'Usage: /ponytail [status|default <mode>|lite|full|ultra|off]' }
+        return { kind: 'error', text: 'Usage: /ponytail [status|reset|default <mode>|lite|full|ultra|off]' }
       }
       deps.store.set(sessionKey(agent), mode)
       agent.steer(createUserMessage({

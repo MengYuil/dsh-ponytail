@@ -38,7 +38,7 @@ export function normalizeRuntimeMode(mode: unknown): PonytailRuntimeMode | null 
 }
 
 /**
- * Deactivation commands only match when the whole message is the command,
+ * English and Chinese deactivation commands match only when the whole message is the command,
  * ignoring case and trailing punctuation. Matching the phrase anywhere would
  * turn ponytail off mid-task for ordinary requests like "add a normal mode
  * toggle".
@@ -47,7 +47,12 @@ export function isDeactivationCommand(text: unknown): boolean {
   const raw = typeof text === 'string' ? text : ''
   // ASCII and CJK sentence enders are all ignorable trailing punctuation.
   const normalized = raw.trim().toLowerCase().replace(/[\s.!?。？！]+$/, '')
-  return normalized === 'stop ponytail' || normalized === 'normal mode'
+  return normalized === 'stop ponytail'
+    || normalized === 'normal mode'
+    || normalized === '停止 ponytail'
+    || normalized === '关闭 ponytail'
+    || normalized === '普通模式'
+    || normalized === '正常模式'
 }
 
 /** Config directory: `$XDG_CONFIG_HOME/ponytail`, `%APPDATA%\ponytail`, else `~/.config/ponytail`. */
@@ -236,6 +241,11 @@ export class ModeStore {
   /** The mode in force for one agent, or the configured default. */
   modeFor(agentId: string, fallback: PonytailRuntimeMode): PonytailRuntimeMode {
     return this.modes.get(agentId) ?? fallback
+  }
+
+  /** Whether this session currently overrides the configured default. */
+  has(agentId: string): boolean {
+    return this.modes.has(agentId)
   }
 
   /** Set the mode for one agent's session (session-scoped, survives until changed or disposal). */
