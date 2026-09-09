@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.3.3] - 2026-09-09
+
 ### Changed
 
 - Reworked the always-on rules into an outcome-driven execution loop: define
