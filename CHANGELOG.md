@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.3.4] - 2026-10-07
+
+### Added
+
+- English README and bilingual navigation (PR #1), included in the npm package.
+
 ### Fixed
 
 - Mode/default status notices now use non-waking injection instead of steering

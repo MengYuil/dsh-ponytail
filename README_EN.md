@@ -23,8 +23,8 @@ not guarantees)”).
 
 - **Latest release**:
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **Pinned version v0.3.3** (immutable per tag):
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.3/mengyuly-dsh-ponytail.tgz`
+- **Pinned version v0.3.4** (immutable per tag):
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.4/mengyuly-dsh-ponytail.tgz`
 
 Notes:
 
@@ -33,7 +33,7 @@ Notes:
   the URL never breaks on a version bump — which also means it is **not
   suitable as an immutable dependency**.
 - **Pinned version**: good for reproducible installs; the URL pins a tag
-  (e.g. `v0.3.3`) that is immutable per tag; the asset name is likewise
+  (e.g. `v0.3.4`) that is immutable per tag; the asset name is likewise
   `mengyuly-dsh-ponytail.tgz`.
 - npm installs still go through the npm Registry or the `dsh plugin` command.
 - The fixed asset name is produced and verified by
@@ -122,6 +122,9 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
   - `/ponytail default <mode>`: persists the default to the **user-level
     config file** (env/profile still take priority; the command reports both
     `saved` and `effective`).
+  - Status changes take effect immediately without waking an idle agent.
+    Notices reach the model on its next real step, avoiding an extra model
+    turn just to switch levels.
 - **One-shot skills** (load on demand, never part of the standing prompt):
   - `/ponytail-review` — find over-engineering in recent changes; every
     finding includes location, replacement, and actual call evidence; no

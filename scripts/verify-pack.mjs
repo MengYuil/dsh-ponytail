@@ -40,7 +40,7 @@ try {
 
   check(entry.version === pkg.version, `packed version ${entry.version} != package.json version ${pkg.version}`)
   const required = [
-    'LICENSE', 'README.md', 'CHANGELOG.md', 'dist-provenance.json', 'cordis.patch.yml', 'package.json',
+    'LICENSE', 'README.md', 'README_EN.md', 'CHANGELOG.md', 'dist-provenance.json', 'cordis.patch.yml', 'package.json',
     'lib/index.js', 'lib/invariant.js',
     'lib/types/index.d.ts', 'lib/types/modes.d.ts', 'lib/types/instructions.d.ts',
     'lib/types/content.d.ts', 'lib/types/invariant.d.ts',
