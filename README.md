@@ -1,5 +1,7 @@
 # dsh-ponytail
 
+[English](README_EN.md) | 简体中文
+
 ![CI](https://github.com/MengYuil/dsh-ponytail/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![npm](https://img.shields.io/npm/v/@mengyuly/dsh-ponytail)](https://www.npmjs.com/package/@mengyuly/dsh-ponytail)
@@ -13,15 +15,15 @@
 
 - **最新版（latest）**：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本 v0.3.2**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.2/mengyuly-dsh-ponytail.tgz`
+- **固定版本 v0.3.3**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.3/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
 - **latest**：适合快速安装体验，会随最新 Release 更新；固定资产名
   `mengyuly-dsh-ponytail.tgz` 在每个 Release 中保持不变，因此该 URL
   不会因版本号变化而失效，**不适合作为不可变依赖**。
-- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.3.2`），按 Tag
+- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.3.3`），按 Tag
   不可变；资产名同样为 `mengyuly-dsh-ponytail.tgz`。
 - npm 安装仍走 npm Registry 或 `dsh plugin` 命令。
 - 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`node scripts/release-assets.mjs`，仅仓库维护者）。
