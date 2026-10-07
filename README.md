@@ -66,6 +66,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   - `/ponytail reset`：清除当前会话覆盖，重新跟随有效配置默认值。
   - `/ponytail lite|full|ultra|off`：显式切换。
   - `/ponytail default <mode>`：持久化默认值到**用户级配置文件**（env/Profile 仍优先，命令分别提示 saved 与 effective）。
+  - 状态操作立即生效，但不唤醒空闲 Agent；模型通知在下一次真实请求时接收，避免切档位额外触发模型调用。
 - **一次性技能**（用哪个载哪个，不进常驻 prompt）：
   - `/ponytail-review` — 针对最近改动找过度工程；每条包含位置、替代方案和实际调用证据，不猜测精确收益。
   - `/ponytail-audit` — 全仓库过度工程审计；区分可安全删除与需要先验证的候选，最多返回 10 条高价值发现。

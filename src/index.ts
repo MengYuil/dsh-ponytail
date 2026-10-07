@@ -113,6 +113,8 @@ async function queueSkill(deps: CommandDeps, invocation: CommandInvocation, skil
 }
 
 function registerCommands(deps: CommandDeps, commandCtx: Context): void {
+  // State notices join the next step without waking an idle agent. Only
+  // explicit skill invocations above request an ordinary model turn.
   commandCtx.commands.register({
     name: 'ponytail',
     description: 'Set or show Ponytail lazy senior dev intensity',
@@ -144,13 +146,13 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         // follow, so a later env change does not surprise them).
         const reason = defaultOverrideReason(process.env, deps.profileMode)
         if (reason !== null) {
-          agent.steer(createUserMessage({
+          agent.inject(createUserMessage({
             content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (${reason}).` }],
             source: { kind: 'plugin', plugin: name },
           }))
           return { kind: 'success', text: `Saved default: ${written}. Effective default: ${effective}, overridden by ${reason}.` }
         }
-        agent.steer(createUserMessage({
+        agent.inject(createUserMessage({
           content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — new sessions start in ${written}.` }],
           source: { kind: 'plugin', plugin: name },
         }))
@@ -172,7 +174,7 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         deps.store.clear(key)
         const current = deps.defaultMode()
         if (changed) {
-          agent.steer(createUserMessage({
+          agent.inject(createUserMessage({
             content: [{ type: 'text', text: modeNotice(current) }],
             source: { kind: 'plugin', plugin: name },
           }))
@@ -193,20 +195,20 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         if (current === 'off') {
           if (effectiveDefault === 'off') {
             deps.store.set(sessionKey(agent), 'full')
-            agent.steer(createUserMessage({
+            agent.inject(createUserMessage({
               content: [{ type: 'text', text: 'PONYTAIL MODE CHANGED — level: full' }],
               source: { kind: 'plugin', plugin: name },
             }))
             return { kind: 'success', text: 'Ponytail re-enabled at full (the effective default is off).' }
           }
           deps.store.clear(sessionKey(agent))
-          agent.steer(createUserMessage({
+          agent.inject(createUserMessage({
             content: [{ type: 'text', text: `PONYTAIL MODE ACTIVE — level: ${effectiveDefault}` }],
             source: { kind: 'plugin', plugin: name },
           }))
           return { kind: 'success', text: `Ponytail re-enabled. Effective default: ${effectiveDefault}.` }
         }
-        agent.steer(createUserMessage({
+        agent.inject(createUserMessage({
           content: [{ type: 'text', text: `PONYTAIL MODE ACTIVE — level: ${current}` }],
           source: { kind: 'plugin', plugin: name },
         }))
@@ -218,7 +220,7 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         return { kind: 'error', text: 'Usage: /ponytail [status|reset|default <mode>|lite|full|ultra|off]' }
       }
       deps.store.set(sessionKey(agent), mode)
-      agent.steer(createUserMessage({
+      agent.inject(createUserMessage({
         content: [{ type: 'text', text: modeNotice(mode) }],
         source: { kind: 'plugin', plugin: name },
       }))

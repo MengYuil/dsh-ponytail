@@ -117,28 +117,42 @@ try {
   // Exercise the real installed command handler with a minimal Cordis-shaped
   // context: status must expose the source, and reset must clear an override.
   const commands = new Map()
+  const skills = new Map()
   const cleanups = []
+  let promptSection
   const fakeCtx = {
     logger: { warn() {} },
     effect(factory) { cleanups.push(factory()) },
     on() {},
-    systemPrompt: { section() {} },
-    skills: { register() {} },
+    systemPrompt: { section(section) { promptSection = section } },
+    skills: {
+      register(skill) { skills.set(skill.name, skill) },
+      async get(name) {
+        const skill = skills.get(name)
+        return skill && { ...skill, provider: 'ponytail' }
+      },
+    },
     inject(_deps, install) {
       install({ commands: { register(command) { commands.set(command.name, command.handler) } } })
     },
   }
   const previousDefault = process.env.PONYTAIL_DEFAULT_MODE
+  const previousConfigHome = process.env.XDG_CONFIG_HOME
+  process.env.XDG_CONFIG_HOME = work.dir
   process.env.PONYTAIL_DEFAULT_MODE = 'lite'
   try {
     mod.apply(fakeCtx, {})
     const ponytail = commands.get('ponytail')
     check(typeof ponytail === 'function', 'installed bundle did not register /ponytail')
     const steered = []
+    const injected = []
+    const followed = []
     const agent = {
       id: 'verify-pack-session',
       session: { header: { cwd: work.dir } },
       steer(message) { steered.push(message) },
+      inject(message) { injected.push(message) },
+      followup(message) { followed.push(message) },
     }
     check(ponytail({ agent, rawInput: 'status' }).text.includes('configured default'),
       'status does not identify the configured default')
@@ -149,10 +163,46 @@ try {
       'reset does not restore the configured default')
     check(ponytail({ agent, rawInput: 'status' }).text.includes('configured default'),
       'reset did not clear the session override')
+    const runStatusCommand = (rawInput, expectedNotice) => {
+      const before = injected.length
+      const result = ponytail({ agent, rawInput })
+      check(result.kind === 'success', `${rawInput || 'bare command'} must succeed`)
+      check(injected.length === before + 1, `${rawInput || 'bare command'} must queue one non-waking notice`)
+      check(injected.at(-1)?.content?.[0]?.text.includes(expectedNotice),
+        `${rawInput || 'bare command'} must preserve its notice`)
+      check(steered.length === 0 && followed.length === 0, 'mode/default notices must never request a model turn')
+    }
+    for (const mode of ['lite', 'full', 'ultra', 'off']) {
+      runStatusCommand(mode, mode === 'off' ? 'PONYTAIL MODE OFF' : `level: ${mode}`)
+      const prompt = promptSection.text({ agent })
+      check(mode === 'off' ? prompt === '' : prompt.includes(`level: ${mode}`),
+        `${mode} must immediately affect the next system prompt`)
+    }
+    runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
+    runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
+    runStatusCommand('full', 'level: full')
+    runStatusCommand('reset', 'level: lite')
+    runStatusCommand('default full', 'saved full, effective lite')
+    delete process.env.PONYTAIL_DEFAULT_MODE
+    runStatusCommand('default off', 'new sessions start in off')
+    runStatusCommand('off', 'PONYTAIL MODE OFF')
+    runStatusCommand('', 'level: full')
+    const noticeCount = injected.length
+    ponytail({ agent, rawInput: 'status' })
+    check(injected.length === noticeCount, 'status must not enqueue a notice')
+    for (const skill of ['ponytail-review', 'ponytail-audit', 'ponytail-debt', 'ponytail-gain', 'ponytail-help']) {
+      const before = followed.length
+      const result = await commands.get(skill)({ agent, rawInput: 'test notes' })
+      check(result.kind === 'success' && followed.length === before + 1,
+        `${skill} must still request an ordinary model turn`)
+    }
+    check(steered.length === 0, 'commands must never steer for a status notice')
   } finally {
     for (const cleanup of cleanups.reverse()) cleanup?.()
     if (previousDefault === undefined) delete process.env.PONYTAIL_DEFAULT_MODE
     else process.env.PONYTAIL_DEFAULT_MODE = previousDefault
+    if (previousConfigHome === undefined) delete process.env.XDG_CONFIG_HOME
+    else process.env.XDG_CONFIG_HOME = previousConfigHome
   }
   check(existsSync(join(installedPkgDir, 'lib', 'types', 'modes.d.ts')), 'installed package missing modes.d.ts')
 } finally {

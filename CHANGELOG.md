@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Mode/default status notices now use non-waking injection instead of steering
+  an idle agent into an extra model turn (issue #2). Mode changes apply
+  immediately; notices reach the model on its next real step. Explicit
+  review/audit/debt/gain/help invocations still request an ordinary turn.
+
 ## [0.3.3] - 2026-09-09
 
 ### Changed
