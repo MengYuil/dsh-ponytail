@@ -15,15 +15,15 @@
 
 - **最新版（latest）**：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本 v0.3.4**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.4/mengyuly-dsh-ponytail.tgz`
+- **固定版本 v0.4.1**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.1/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
 - **latest**：适合快速安装体验，会随最新 Release 更新；固定资产名
   `mengyuly-dsh-ponytail.tgz` 在每个 Release 中保持不变，因此该 URL
   不会因版本号变化而失效，**不适合作为不可变依赖**。
-- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.3.4`），按 Tag
+- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.4.1`），按 Tag
   不可变；资产名同样为 `mengyuly-dsh-ponytail.tgz`。
 - npm 安装仍走 npm Registry 或 `dsh plugin` 命令。
 - 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`node scripts/release-assets.mjs`，仅仓库维护者）。
@@ -31,6 +31,9 @@
 ## 安装
 
 装进某个 profile（`web` 可换成 `tui`/自定义名）：
+
+推荐从 npm 安装稳定版：`dsh plugin --profile web add @mengyuly/dsh-ponytail`。
+需要固定本版时使用 `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.1`。
 
 ```bash
 # 方式一：本地链接（当前 dsh 核 ≥ 0.1.x）
@@ -47,23 +50,36 @@ dsh plugin --profile web add file:./mengyuly-dsh-ponytail.tgz
 dsh plugin --profile web add @mengyuly/dsh-ponytail
 ```
 
-装完重启 profile 生效（`dsh web` / `dsh tui`）。装载完成后，会话技能目录里会出现 6 个 `ponytail*` 技能，发 `/ponytail-help` 立即验证。
+装完重启 profile 生效（例如 `dsh web`）。发 `/ponytail status` 查看实际模式与来源，
+或 `/ponytail help` 查看命令帮助；两者均不调用模型。默认注册 6 个 `ponytail*` 技能，
+关闭附加技能后目录相应减少。`/ponytail-help` 是会请求模型工作的技能，不是零调用的安装检查。
+
+### 更新已有安装
+
+```bash
+dsh plugin --profile web update @mengyuly/dsh-ponytail
+```
+
+更新后重启对应 profile。GitHub、链接或本地 tgz 安装请重新添加所需来源；
+不要把 npm 更新命令当成改变安装来源的保证。
 
 > `lib/index.js` 是自包含 bundle（已内联 `dsh-llm` / `dsh-skill`——npm 无兼容版本），运行时依赖两个已发布的 peer：`@deepseek-ai/cordis`（4.0.1）与 `@deepseek-ai/schemastery`（3.18.x）。`schemastery` 刻意保持外置而非内联：其 schema DSL 用 `new Function` 编译 `callback` 字符串，外置后**发行产物不含任何动态代码执行**（CI 有专门检查）。GitHub / tgz / npm 三种安装方式都不需要 dsh 源码树。
 
-> 说明：`src/` 是源码、`lib/` 是预构建产物（开箱即可加载，无需编译）。源码主仓在 deepseek-harness 的 `packages/community/ponytail`；改源码后用 `DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs` 重建并同步完整 `lib/`（见下「发行维护」）。
+> 说明：当前下游源码以本仓库 `src/` 为准，`lib/` 是随包提供的预构建产物。
+> deepseek-harness 的 `packages/community/ponytail` 是历史内联依赖基线。
+> 下游构建使用 `node scripts/build-ui.mjs`；不要用 `sync:dist` 覆盖尚未同步到宿主的下游修改（详见「发行维护」）。
 
 ## 功能
 
 - **核心模式** `/ponytail` — 每轮注入结构化的懒惰开发者规则集，**三个档位是真实不同的 Prompt 片段**（不只是换一行）：
   - **Common（所有非 off 档共享）**：先把请求转成可观察的完成条件；沿真实调用流取证，但决策阶梯是快速反射、不是研究项目；按“检查 → 修改 → 最窄有效验证 → 检查最终 diff”闭环执行；非平凡逻辑只留一个最小可执行检查，不额外搭测试框架或 fixtures；只汇报已验证结果。
   - **Safety（任何档位都不可删）**：输入校验、防数据丢失的错误处理、安全措施、无障碍、明确验收项、先理解问题、「最小 diff ≠ 正确修复」。
-  - **`lite`**：直接执行、减少仪式；完整交付明确要求；可以一句话指出更简方案，但**不挑战明确需求**。
+  - **`lite`**：完整交付明确要求，**必须用一句话指出更简方案，由用户选择**；没有可行替代时如实说明，不编造方案，也不擅自改变需求范围。
   - **`full`（默认）**：完整七级阶梯（YAGNI → 复用 → 标准库 → 原生 → 已装依赖 → 一行 → 最小实现），默认选最短正确实现，修根因而非症状。
   - **`ultra`**：新增代码前先要证据，优先删除或复用；主动质疑投机性功能/缓存/抽象/配置/新依赖；复杂需求先给最小正确版并说明扩大条件；**不是无脑拒绝**。
   - `off`：完全不注入。
   - 档位**会话级**（会话 A 不影响会话 B，会话结束自动释放）。
-  - 裸 `/ponytail`：已启用时只报告；`off` 时恢复到有效默认档（默认也是 `off` 则回 `full`）。
+  - 裸 `/ponytail`：支持原生命令菜单的 Web 会打开模式选择器；其他宿主中，已启用时只报告，`off` 时恢复到有效默认档（默认也是 `off` 则回 `full`）。
   - `/ponytail status`：只查询、永不修改，并显示当前模式来自会话覆盖还是配置默认值。
   - `/ponytail reset`：清除当前会话覆盖，重新跟随有效配置默认值。
   - `/ponytail lite|full|ultra|off`：显式切换。
@@ -168,17 +184,17 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 - 档位差异在**规则语义**上（见上），三者 Prompt 体积相近（实测见上表）。
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
 - 用户 `config.json` 热更新；`PONYTAIL_DEFAULT_MODE` 与 Profile config 需重启生效。
-- 发行 `lib/` 是预编译产物；改源码请回主仓重建后同步。
+- 发行 `lib/` 是预编译产物；下游修改在本仓库构建，并核对安装包与源码的一致性。
 
 ## 兼容矩阵（实测，不虚构）
 
 | 组件 | 已验证环境 | 备注 |
 |---|---|---|
 | Node.js | 22.x / 24.x | CI 矩阵 4 组合全绿 |
-| OS | ubuntu-latest / windows-latest | CI 矩阵 |
+| OS | ubuntu-24.04 / windows-latest | CI 矩阵 |
 | DSH | commit `b150a551`（构建所用 checkout） | 与正式发布版本的精确对应关系**待确认** |
 | Cordis | 4.0.1（构建所用 vendor） | 同上 |
-| web profile | 已验证 | 本机真实 profile 长期运行 + 三路径隔离安装实测（npm / GitHub / tgz） |
+| web profile | 已验证 | WSL Debian 隔离真实 DSH：加载、保存/重启持久化、优先级、技能开关及命令；npm/pnpm 安装验证 |
 | tui profile | 未验证 | 未在 tui profile 中启动测试 |
 | headless profile | 未验证 | 未完整启动；插件单元测试运行于无 UI 环境 |
 | npm tarball | 已验证 | 内容/版本/安装后 smoke/NodeNext consumer |
@@ -188,7 +204,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 
 ## 测试环境与权威关系
 
-- 本机（Linux，Node.js **v24.16.0**，deepseek-harness checkout 构建）与 CI 矩阵（**ubuntu-latest + windows-latest × Node 22/24**）上验证通过。与之精确匹配的已发布 DSH/Cordis 版本**待确认**——checkout 是预发布工作树，非发布 tag。
+- 本机 WSL Debian（Node.js **v24.16.0**，DSH checkout CLI 标识 **0.1.1-rc.2**）、Windows Node 24 与 CI（**ubuntu-24.04 + windows-latest × Node 22/24**）上验证。真实宿主 checkout 为 `b150a551`，不是正式发布 tag；不能据此声称所有 DSH 发布版本都兼容。
 - 历史宿主构建基线来自 deepseek-harness monorepo 的 `packages/community/ponytail`；当前 `@mengyuly/dsh-ponytail` 的下游适配修改以本仓库 `src/` 为准，随包附构建产物。
 
 ## 发行维护
@@ -218,8 +234,10 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
   ```bash
   DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs
   ```
-  该命令在权威 checkout 中重建（`tsc` 生成声明 + `tsdown` 打包运行时），同步 `lib/index.js`、`lib/invariant.js`、`lib/types/*.d.ts`，生成 `dist-provenance.json`（记录权威 checkout 的真实 commit SHA 与工具链版本），并自动执行一致性校验；产物有变化时会提示提交。**完整构建一致性由本命令在发布流程中完成——发行镜像 CI 不会重新构建权威 monorepo。**
-- **CI 能力边界（如实）**：CI（ubuntu + windows 矩阵）执行上述静态验证与打包/消费测试，但**不重新构建权威 monorepo**；`verify:dist` 是导出表面/签名/运行时导出的一致性检查，**不是**与权威构建的字节级等价证明——后者由 `sync:dist` 在发布流程中保证。
+  该命令重建宿主 checkout 的基线，并覆盖本仓库的源码、JS、声明和 provenance。
+  **仅在下游修改已经同步到该 checkout、且确认需要完整重建时使用**；不应作为日常下游构建命令。
+- **CI 能力边界（如实）**：CI 执行静态验证、源码/下游产物哈希及打包/消费测试，
+  **不重新构建宿主 monorepo**。这些检查不证明当前下游产物等同于宿主基线的全量重新构建，也不证明模型服从率或效率收益。
 - `dist-provenance.json` 随 npm 包发布，便于审计构建来源。
 - 本机验证时若 `npm_execpath` 指向其他包管理器（如 pnpm/yarn shim），脚本会自动回退到 PATH 上的 `npm`；临时目录失败时保留需设 `PONYTAIL_VERIFY_KEEP_TEMP=1`。
 - **安全**：`scripts/**` 仅用于开发/构建/发行验证，**不进入 npm tarball**、无安装生命周期钩子、运行时入口不引用、发布包 `package.json` 不暴露这些维护命令；`child_process` 告警属于可接受的开发工具风险。详见 [SECURITY.md](SECURITY.md)。

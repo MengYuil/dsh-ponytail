@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.4.1] - 2026-10-08
+
+### Changed
+
+- Synchronize bilingual README, settings tooltips, recommendations and skill
+  help with the actual Lite behavior and complete seven-rung ladder.
+- Refresh pinned download links, update instructions, non-model verification,
+  build-source guidance and verified compatibility notes.
+- Add relevant npm search keywords, homepage and issue links. No core rule
+  or mode behavior changes; `latest` remains the default release channel.
+
 ## [0.4.0] - 2026-10-08
 
 ### Added

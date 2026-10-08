@@ -23,8 +23,8 @@ not guarantees)”).
 
 - **Latest release**:
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **Pinned version v0.3.4** (immutable per tag):
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.3.4/mengyuly-dsh-ponytail.tgz`
+- **Pinned version v0.4.1** (immutable per tag):
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.1/mengyuly-dsh-ponytail.tgz`
 
 Notes:
 
@@ -33,7 +33,7 @@ Notes:
   the URL never breaks on a version bump — which also means it is **not
   suitable as an immutable dependency**.
 - **Pinned version**: good for reproducible installs; the URL pins a tag
-  (e.g. `v0.3.4`) that is immutable per tag; the asset name is likewise
+  (e.g. `v0.4.1`) that is immutable per tag; the asset name is likewise
   `mengyuly-dsh-ponytail.tgz`.
 - npm installs still go through the npm Registry or the `dsh plugin` command.
 - The fixed asset name is produced and verified by
@@ -43,6 +43,9 @@ Notes:
 ## Installation
 
 Install into a profile (replace `web` with `tui` or a custom name):
+
+Recommended stable npm install: `dsh plugin --profile web add @mengyuly/dsh-ponytail`.
+To pin this release: `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.1`.
 
 ```bash
 # Option 1: local link (current dsh cores >= 0.1.x)
@@ -60,9 +63,21 @@ dsh plugin --profile web add file:./mengyuly-dsh-ponytail.tgz
 dsh plugin --profile web add @mengyuly/dsh-ponytail
 ```
 
-Restart the profile after installing (`dsh web` / `dsh tui`) for it to take
-effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
-`/ponytail-help` to verify immediately.
+Restart the profile after installing (for example, `dsh web`). Use
+`/ponytail status` for the effective mode/source or `/ponytail help` for command
+help; neither calls the model. Six `ponytail*` skills are registered by default,
+with disabled optional skills removed from the catalog. `/ponytail-help` is a
+model-backed skill, not a zero-call installation check.
+
+### Updating an existing installation
+
+```bash
+dsh plugin --profile web update @mengyuly/dsh-ponytail
+```
+
+Restart the corresponding profile afterward. For GitHub, linked or local-tgz
+installs, re-add the desired source; the npm update command is not a guarantee
+that the installation source changes.
 
 > `lib/index.js` is a self-contained bundle (`dsh-llm` / `dsh-skill` are
 > already inlined — npm has no compatible versions) with two published
@@ -73,12 +88,10 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
 > no dynamic code execution** (CI has a dedicated check). None of the three
 > install paths — GitHub, tgz, npm — needs a dsh source tree.
 
-> Note: `src/` is the source, `lib/` is the prebuilt artifact (loadable
-> out of the box, no build step). The authoritative source lives in the
-> deepseek-harness monorepo at `packages/community/ponytail`; after changing
-> source, rebuild and sync the full `lib/` with
-> `DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs`
-> (see “Release maintenance” below).
+> This repository's `src/` owns current downstream source; `lib/` ships prebuilt.
+> The monorepo's `packages/community/ponytail` is the historical inlined baseline.
+> Use `node scripts/build-ui.mjs` for downstream builds; do not overwrite local
+> downstream changes with `sync:dist` before they exist in the host checkout.
 
 ## Features
 
@@ -97,8 +110,9 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
     explicit acceptance criteria, understanding the problem first, and
     “minimal diff ≠ correct fix”.
   - **`lite`**: execute directly, less ceremony; still complete explicit
-    deliverables; you may point out a simpler approach in one sentence, but
-    **do not challenge explicit requirements**.
+    deliverables; **must name a simpler alternative in one line, leaving the
+    choice to the user**. If none works, say so; do not invent an alternative
+    or silently change the requested scope.
   - **`full`** (default): the full seven-rung ladder (YAGNI → reuse → stdlib
     → native → installed dependencies → one line → minimal implementation);
     pick the shortest correct implementation by default; fix root causes, not
@@ -111,9 +125,9 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
   - `off`: no injection at all.
   - Levels are **session-scoped** (session A does not affect session B;
     released automatically when the session ends).
-  - Bare `/ponytail`: when enabled it only reports; when `off` it restores the
-    effective default level (falling back to `full` if that default is also
-    `off`).
+  - Bare `/ponytail`: opens a picker in Web hosts with native command-menu
+    support. Elsewhere it reports when enabled; from `off` it restores the
+    effective default (falling back to `full` if that default is also `off`).
   - `/ponytail status`: query only, never modifies, and shows whether the
     current mode comes from a session override or the configured default.
   - `/ponytail reset`: clears the current session override and follows the
@@ -274,18 +288,18 @@ benchmark provides directional evidence only (see
   point.
 - User `config.json` hot-reloads; `PONYTAIL_DEFAULT_MODE` and profile config
   need a restart.
-- The shipped `lib/` is a prebuilt artifact; to change behavior, rebuild in
-  the main repo and re-sync.
+- The shipped `lib/` is prebuilt; build downstream changes in this repository
+  and verify installed/source parity.
 
 ## Compatibility matrix (measured, not fabricated)
 
 | Component | Verified environment | Notes |
 |---|---|---|
 | Node.js | 22.x / 24.x | CI matrix, 4 combinations green |
-| OS | ubuntu-latest / windows-latest | CI matrix |
+| OS | ubuntu-24.04 / windows-latest | CI matrix |
 | DSH | commit `b150a551` (build checkout) | exact mapping to an official release **TBD** |
 | Cordis | 4.0.1 (build vendor) | same |
-| web profile | verified | long-running on a real local profile + three isolated install-path tests (npm / GitHub / tgz) |
+| web profile | verified | isolated real WSL DSH: loading, save/restart persistence, priorities, skill switches and commands; npm/pnpm install checks |
 | tui profile | not verified | not started inside a tui profile |
 | headless profile | not verified | not fully started; plugin unit tests run in a UI-less environment |
 | npm tarball | verified | contents/version/post-install smoke/NodeNext consumer |
@@ -297,10 +311,10 @@ benchmark provides directional evidence only (see
 
 ## Test environments and source of truth
 
-- Verified locally (Linux, Node.js **v24.16.0**, deepseek-harness checkout
-  build) and in the CI matrix (**ubuntu-latest + windows-latest × Node
-  22/24**). The exact published DSH/Cordis release they correspond to is
-  **TBD** — the checkout is a prerelease working tree, not a release tag.
+- Verified with WSL Debian Node **v24.16.0**, checkout CLI **0.1.1-rc.2**,
+  Windows Node 24 and CI (**ubuntu-24.04 + windows-latest × Node 22/24**).
+  Host checkout `b150a551` is not an official release tag; this does not
+  establish compatibility with every published DSH version.
 - The historical host build baseline is `packages/community/ponytail` in the
   deepseek-harness monorepo. Current `@mengyuly/dsh-ponytail` downstream changes
   are maintained in this repository's `src/`, alongside shipped artifacts.
@@ -337,20 +351,14 @@ benchmark provides directional evidence only (see
   ```bash
   DSH_CHECKOUT=/path/to/deepseek-harness node scripts/sync-dist.mjs
   ```
-  This rebuilds inside the authoritative checkout (`tsc` for declarations +
-  `tsdown` for the runtime bundle), syncs `lib/index.js`, `lib/invariant.js`,
-  `lib/types/*.d.ts`, generates `dist-provenance.json` (recording the
-  authoritative checkout's real commit SHA and toolchain versions), and runs
-  the consistency checks automatically; it prompts you to commit when
-  artifacts changed. **Full build consistency is produced by this command in
-  the release process — the mirror repository's CI never rebuilds the
-  authoritative monorepo.**
-- **CI capability boundary (honest)**: CI (ubuntu + windows matrix) runs the
-  static verification and pack/consumer tests above, but **does not rebuild
-  the authoritative monorepo**; `verify:dist` is an export-surface/signature/
-  runtime-export consistency check, **not** a byte-level equivalence proof
-  against the authoritative build — that is guaranteed by `sync:dist` in the
-  release process.
+  This rebuilds the host checkout baseline and overwrites this repository's
+  source, JS, declarations and provenance. **Use only after downstream changes
+  exist in that checkout and a full rebuild is intended**, not as the routine
+  downstream build command.
+- **CI capability boundary (honest)**: CI runs static checks, downstream
+  source/artifact hashes and pack/consumer tests; it **does not rebuild the
+  host monorepo**. These checks establish neither full-rebuild equivalence
+  with the host baseline nor model compliance or efficiency gains.
 - `dist-provenance.json` ships with the npm package for build-source audits.
 - When verifying locally, if `npm_execpath` points at another package manager
   (e.g. a pnpm/yarn shim), the scripts fall back to `npm` on PATH; set

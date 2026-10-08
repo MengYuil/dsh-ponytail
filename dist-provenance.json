@@ -15,12 +15,12 @@
     "esbuild": "0.28.2",
     "sha256": {
       "src/index.ts": "8421733adf8c801c1578b070cf789b5bd77588acbe90403dd69ee5467375c955",
-      "src/client.ts": "7a2c941b8a85096d863da16982ba9c6b82c709cb0561057f1b221239bbb6688a",
-      "src/content.ts": "9dc57919da6cbfcf06ae26a19e81bb0299e44d2b9c016d3477572758d9ade375",
+      "src/client.ts": "faca913a8b0348e89f67853a1e07bd4eefa0236b491f957c71fea3a914c51271",
+      "src/content.ts": "e9f6de036af5233a5ca6ab258be5ba821f8e072065fa43b0c700d2fac42a3095",
       "src/instructions.ts": "d96deb078f6f633fffb0e3da2750eb9d3afb37bce4cea11145db045c8cceb935",
       "src/modes.ts": "74b8b885d145759ce17007a054ab6adc295f726f47518f56a3d37de67bd14231",
-      "lib/index.js": "b5856ca9147b78111edcd9d43be3edec4c15295ddb7539f4bf48244fef7f6ffb",
-      "lib/client.js": "84ea84dc9a6148e822f9830999cca0229a27b3696ab000394a53cc2fef3454b4"
+      "lib/index.js": "b65a606716bc0e1ab0f8d26262eebd07cefe130373e90fae8324b7101ca9b581",
+      "lib/client.js": "3a57ec216b96944b404d42fc303e3b7681e9c7b0a909bb25cda98820038aba9c"
     }
   }
 }

@@ -1,7 +1,14 @@
 {
   "name": "@mengyuly/dsh-ponytail",
   "description": "Lazy senior dev mode for DeepSeek Harness: always-on minimal-code ruleset, intensity switching, and short review/audit/debt/gain/help skills",
-  "version": "0.4.0",
+  "version": "0.4.1",
+  "keywords": [
+    "deepseek", "deepseek-harness", "dsh", "dsh-plugin", "ponytail",
+    "ai-agent", "agent-plugin", "system-prompt", "prompt-engineering",
+    "yagni", "minimal-code", "code-review", "technical-debt"
+  ],
+  "homepage": "https://github.com/MengYuil/dsh-ponytail#readme",
+  "bugs": { "url": "https://github.com/MengYuil/dsh-ponytail/issues" },
   "publishConfig": {
     "access": "public"
   },
