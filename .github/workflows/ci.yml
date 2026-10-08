@@ -9,12 +9,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Bundle externals and manifest surface"
@@ -31,5 +31,7 @@ jobs:
         run: node scripts/check-release-links.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Release consistency script offline sanity"
         run: node scripts/check-release-consistency.mjs --offline
+      - name: Release publication retry regression tests
+        run: node scripts/test-release-retry.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: node scripts/test-consumer.mjs

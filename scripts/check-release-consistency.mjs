@@ -355,13 +355,35 @@ export async function runChecks(options) {
   return result
 }
 
+// A release event can arrive before npm publication/registry propagation.
+// Retry only that specific condition; digest/content mismatches fail immediately.
+export async function checkWithRetry(options, check = runChecks, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  const attempts = options.attempts ?? 1
+  const delay = options.retryDelayMs ?? 30000
+  if (!Number.isInteger(attempts) || attempts < 1 || attempts > 10
+    || !Number.isInteger(delay) || delay < 0 || delay > 60000) {
+    throw new Error('attempts must be 1..10 and retry delay must be 0..60000 ms')
+  }
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const result = await check(options)
+    const awaitingNpm = result.errors.length > 0 && result.errors.every(error =>
+      error.startsWith('npm dist-tag latest is ')
+      || /^remote check unavailable: npm (tarball download|registry): HTTP 404\b/.test(error))
+    if (result.consistent || !awaitingNpm || attempt === attempts) return result
+    process.stderr.write(`npm publication not ready; retry ${attempt + 1}/${attempts} in ${delay} ms\n`)
+    await wait(delay)
+  }
+}
+
 /** CLI entry. */
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const args = process.argv.slice(2)
   const versionArg = args.indexOf('--version')
   const version = versionArg >= 0 ? args[versionArg + 1] : undefined
   const offline = args.includes('--offline')
-  const result = await runChecks({ version, offline })
+  const option = (name, fallback) => args.includes(name) ? Number(args[args.indexOf(name) + 1]) : fallback
+  const result = await checkWithRetry({ version, offline,
+    attempts: option('--attempts', 1), retryDelayMs: option('--retry-delay-ms', 30000) })
   process.stdout.write(JSON.stringify(result, null, 2) + '\n')
   const exit = result.errors.some(e => e.startsWith('remote check unavailable'))
     ? 3

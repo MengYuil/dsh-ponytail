@@ -11,23 +11,28 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Determine version
         id: version
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$REQUESTED_VERSION" ]; then
+            echo "version=$REQUESTED_VERSION" >> "$GITHUB_OUTPUT"
           else
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
       - name: Cross-channel release consistency (git tag, npm, GitHub assets, provenance)
-        run: node scripts/check-release-consistency.mjs --version "${{ steps.version.outputs.version }}"
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/check-release-consistency.mjs --version "$RELEASE_VERSION" --attempts 6 --retry-delay-ms 30000
       - name: Fail loudly on remote unavailability
         if: failure()
         run: echo "::error::release consistency check failed or remote check was unavailable — investigate before relying on this release"
