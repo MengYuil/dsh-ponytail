@@ -30,6 +30,7 @@ const FIXED_NAME = 'mengyuly-dsh-ponytail.tgz'
 const MUST_HAVE = [
   'package/package.json',
   'package/lib/index.js',
+  'package/lib/client.js',
   'package/lib/invariant.js',
   'package/lib/types/index.d.ts',
   'package/lib/types/content.d.ts',
@@ -38,6 +39,7 @@ const MUST_HAVE = [
   'package/lib/types/modes.d.ts',
   'package/cordis.patch.yml',
   'package/README.md',
+  'package/README_EN.md',
   'package/LICENSE',
   'package/CHANGELOG.md',
   'package/dist-provenance.json',

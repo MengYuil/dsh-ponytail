@@ -4,7 +4,7 @@
  * `skill` tool). The `ponytail` skill is a mode-aware pointer card: the actual
  * ruleset is injected per session as the mode-filtered `PONYTAIL MODE ACTIVE`
  * section (see `instructions.ts`) and must not be duplicated here. The other
- * five skills ship verbatim as runtime skills.
+ * five skills are adapted one-shot runtime skills, not verbatim upstream copies.
  *
  * @module @mengyuly/dsh-ponytail
  */
@@ -125,10 +125,13 @@ ceiling and upgrade path.
 
 Prefer ripgrep and exclude generated or dependency trees:
 
-\`rg -n --hidden --glob '!node_modules/**' --glob '!.git/**' --glob '!lib/**' --glob '!dist/**' --glob '!build/**' '(#|//) ?ponytail:' .\`
+\`rg -n --hidden --glob '!**/node_modules/**' --glob '!**/.git/**' --glob '!**/dist/**' --glob '!**/build/**' '(#|//|/[*]) ?ponytail:' .\`
 
 If \`rg\` is unavailable, scan tracked files only:
-\`git grep -n -E '(#|//) ?ponytail:'\`
+\`git grep -n -E '(#|//|/[*]) ?ponytail:' -- . ':(glob,exclude)**/node_modules/**' ':(glob,exclude)**/dist/**' ':(glob,exclude)**/build/**'\`
+
+Adapt comment prefixes to the stack. Exclude other verified generated trees,
+but keep \`lib\` when it contains source.
 
 Each hit is one row; the comment prefix excludes prose mentions.
 
@@ -308,10 +311,13 @@ export PONYTAIL_DEFAULT_MODE=ultra
 
 Set \`"off"\` to disable auto-activation on session start, activate manually
 with \`/ponytail\` when wanted. \`/ponytail default <mode>\` persists a new
-default to the user config file; an exported \`PONYTAIL_DEFAULT_MODE\` or a
+default through DSH Settings when available, otherwise the user config file; an exported \`PONYTAIL_DEFAULT_MODE\` or a
 profile \`defaultMode\` still outranks the saved value for new sessions.
 
-Resolution: session override > env var > profile config > config file > \`full\`.
+Web Settings > Plugins > Ponytail: default mode, optional skills, panel reset.
+Existing session overrides stay intact. /ponytail help shows help without a model call.
+
+Resolution: session override > env var > profile config > DSH settings > config file > \`full\`.
 
 ## More
 

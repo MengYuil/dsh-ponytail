@@ -11,9 +11,9 @@
  *     depend on the authoritative source tree.
  *
  * Honest dependency reporting: npm auto-installs the declared peerDependencies
- * (including the DSH host-contract peers, resolved from the registry). The
+ * (cordis and schemastery; optional DSH contracts are host-provided). The
  * installed dependency list is printed so the claim stays factual: the bundle
- * imports ONLY `@deepseek-ai/cordis` at runtime (an independent externals
+ * imports `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` at runtime (an independent externals
  * check), while the manifest peers are host-contract declarations.
  *
  * Exits non-zero on any failure. Temporary files are removed unless
@@ -25,6 +25,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { runNpm, tempWork } from './lib/run-command.mjs'
 import { readTar } from './check-release-consistency.mjs'
+import { getPonytailInstructions } from '../src/instructions.ts'
+import { ponytailSkills } from '../src/content.ts'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
@@ -41,7 +43,7 @@ try {
   check(entry.version === pkg.version, `packed version ${entry.version} != package.json version ${pkg.version}`)
   const required = [
     'LICENSE', 'README.md', 'README_EN.md', 'CHANGELOG.md', 'dist-provenance.json', 'cordis.patch.yml', 'package.json',
-    'lib/index.js', 'lib/invariant.js',
+    'lib/index.js', 'lib/client.js', 'lib/invariant.js',
     'lib/types/index.d.ts', 'lib/types/modes.d.ts', 'lib/types/instructions.d.ts',
     'lib/types/content.d.ts', 'lib/types/invariant.d.ts',
   ]
@@ -91,11 +93,13 @@ try {
   // installed explicitly from the registry for the smoke.
   runNpm(['install', tgz, '@deepseek-ai/cordis@4', '@deepseek-ai/schemastery@3'], work.dir)
 
-  // Report what actually got installed (npm auto-resolves all declared peers).
+  // Optional host contracts must not pull a second DSH into a plugin-only install.
   const installedPkgDir = join(work.dir, 'node_modules', pkg.name)
   const scopedDir = join(work.dir, 'node_modules', '@deepseek-ai')
   const installed = existsSync(scopedDir) ? readdirSync(scopedDir).sort() : []
   const peers = Object.keys(pkg.peerDependencies ?? {}).sort()
+  check(!installed.some(name => name.startsWith('dsh-')),
+    'plugin-only npm installation must not automatically install DSH host contracts')
   console.log(`verify-pack: installed @deepseek-ai/* deps: ${installed.join(', ') || '(none)'}`)
   console.log(`verify-pack: declared peers: ${peers.join(', ')} (host-contract; the bundle imports @deepseek-ai/cordis + @deepseek-ai/schemastery at runtime)`)
 
@@ -120,20 +124,32 @@ try {
   const skills = new Map()
   const cleanups = []
   let promptSection
+  let preferences = { defaultMode: 'inherit', disabledSkills: [] }
+  let refusePreferenceWrite = false
+  let onPreferences = () => {}
+  const settingsScope = {
+    get: () => preferences,
+    watch(listener) { onPreferences = listener; return () => { onPreferences = () => {} } },
+    async update(patch) {
+      if (refusePreferenceWrite) throw new Error('settings write refused')
+      preferences = { ...preferences, ...patch }; onPreferences(preferences)
+    },
+  }
   const fakeCtx = {
     logger: { warn() {} },
     effect(factory) { cleanups.push(factory()) },
     on() {},
     systemPrompt: { section(section) { promptSection = section } },
     skills: {
-      register(skill) { skills.set(skill.name, skill) },
+      register(skill) { skills.set(skill.name, skill); return () => skills.delete(skill.name) },
       async get(name) {
         const skill = skills.get(name)
         return skill && { ...skill, provider: 'ponytail' }
       },
     },
-    inject(_deps, install) {
-      install({ commands: { register(command) { commands.set(command.name, command.handler) } } })
+    inject(deps, install) {
+      if (deps.includes('settings')) install({ ...fakeCtx, settings: { register() { return settingsScope } } })
+      else install({ commands: { register(command) { commands.set(command.name, command.handler) } } })
     },
   }
   const previousDefault = process.env.PONYTAIL_DEFAULT_MODE
@@ -142,8 +158,23 @@ try {
   process.env.PONYTAIL_DEFAULT_MODE = 'lite'
   try {
     mod.apply(fakeCtx, {})
+    for (const skill of ponytailSkills()) {
+      check(skills.get(skill.name)?.content === skill.content,
+        `installed ${skill.name} content must match the source mirror`)
+    }
     const ponytail = commands.get('ponytail')
     check(typeof ponytail === 'function', 'installed bundle did not register /ponytail')
+    const settingsAgent = { id: 'settings-session' }
+    await settingsScope.update({ defaultMode: 'ultra', disabledSkills: ['ponytail-audit'] })
+    check(!skills.has('ponytail-audit'), 'disabled skill must leave the actual catalog')
+    check(promptSection.text({ agent: settingsAgent }) === getPonytailInstructions('lite'),
+      'environment must still outrank settings')
+    delete process.env.PONYTAIL_DEFAULT_MODE
+    check(promptSection.text({ agent: settingsAgent }) === getPonytailInstructions('ultra'),
+      'settings default must immediately reach the actual system prompt')
+    process.env.PONYTAIL_DEFAULT_MODE = 'lite'
+    await settingsScope.update({ defaultMode: 'inherit', disabledSkills: [] })
+    check(skills.has('ponytail-audit'), 're-enabled skill must return to the actual catalog')
     const steered = []
     const injected = []
     const followed = []
@@ -163,9 +194,9 @@ try {
       'reset does not restore the configured default')
     check(ponytail({ agent, rawInput: 'status' }).text.includes('configured default'),
       'reset did not clear the session override')
-    const runStatusCommand = (rawInput, expectedNotice) => {
+    const runStatusCommand = async (rawInput, expectedNotice) => {
       const before = injected.length
-      const result = ponytail({ agent, rawInput })
+      const result = await ponytail({ agent, rawInput })
       check(result.kind === 'success', `${rawInput || 'bare command'} must succeed`)
       check(injected.length === before + 1, `${rawInput || 'bare command'} must queue one non-waking notice`)
       check(injected.at(-1)?.content?.[0]?.text.includes(expectedNotice),
@@ -173,20 +204,22 @@ try {
       check(steered.length === 0 && followed.length === 0, 'mode/default notices must never request a model turn')
     }
     for (const mode of ['lite', 'full', 'ultra', 'off']) {
-      runStatusCommand(mode, mode === 'off' ? 'PONYTAIL MODE OFF' : `level: ${mode}`)
+      await runStatusCommand(mode, mode === 'off' ? 'PONYTAIL MODE OFF' : `level: ${mode}`)
       const prompt = promptSection.text({ agent })
+      check(prompt === getPonytailInstructions(mode),
+        `installed ${mode} prompt must exactly match the source mirror`)
       check(mode === 'off' ? prompt === '' : prompt.includes(`level: ${mode}`),
         `${mode} must immediately affect the next system prompt`)
     }
-    runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
-    runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
-    runStatusCommand('full', 'level: full')
-    runStatusCommand('reset', 'level: lite')
-    runStatusCommand('default full', 'saved full, effective lite')
+    await runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
+    await runStatusCommand('', 'PONYTAIL MODE ACTIVE — level: lite')
+    await runStatusCommand('full', 'level: full')
+    await runStatusCommand('reset', 'level: lite')
+    await runStatusCommand('default full', 'saved full, effective lite')
     delete process.env.PONYTAIL_DEFAULT_MODE
-    runStatusCommand('default off', 'new sessions start in off')
-    runStatusCommand('off', 'PONYTAIL MODE OFF')
-    runStatusCommand('', 'level: full')
+    await runStatusCommand('default off', 'new sessions start in off')
+    await runStatusCommand('off', 'PONYTAIL MODE OFF')
+    await runStatusCommand('', 'level: full')
     const noticeCount = injected.length
     ponytail({ agent, rawInput: 'status' })
     check(injected.length === noticeCount, 'status must not enqueue a notice')
@@ -197,6 +230,37 @@ try {
         `${skill} must still request an ordinary model turn`)
     }
     check(steered.length === 0, 'commands must never steer for a status notice')
+    const beforeHelp = injected.length
+    check(ponytail({ agent, rawInput: 'help' }).text.includes('/ponytail status'), 'help must be available without loading a model skill')
+    check(injected.length === beforeHelp, 'help must not enqueue a model message')
+    ponytail({ agent, rawInput: 'ultra' })
+    const beforeSettings = injected.length
+    await settingsScope.update({ defaultMode: 'lite', disabledSkills: ['ponytail-review'] })
+    check(promptSection.text({ agent }) === getPonytailInstructions('ultra'), 'settings must not overwrite a session override')
+    check(promptSection.text({ agent: settingsAgent }) === getPonytailInstructions('lite'), 'sessions without overrides must follow settings')
+    const beforeFollowup = followed.length
+    check((await commands.get('ponytail-review')({ agent, rawInput: '' })).kind === 'error', 'disabled skill invocation must be refused')
+    check(followed.length === beforeFollowup, 'disabled skills must not request model work')
+    check(injected.length === beforeSettings, 'settings changes must not enqueue messages')
+    refusePreferenceWrite = true
+    const failedSave = await ponytail({ agent, rawInput: 'default full' })
+    check(failedSave.kind === 'error' && preferences.defaultMode === 'lite', 'failed saves must keep the previous default')
+    check(injected.length === beforeSettings, 'failed saves must not enqueue a success notice')
+    const legacyCommands = new Map()
+    let legacyPrompt
+    const legacyCtx = {
+      ...fakeCtx,
+      systemPrompt: { section(section) { legacyPrompt = section } },
+      skills: { register() { return () => {} } },
+      inject(deps, install) {
+        if (deps.includes('commands')) install({ commands: { register(command) { legacyCommands.set(command.name, command.handler) } } })
+      },
+    }
+    mod.apply(legacyCtx, { defaultMode: 'full' })
+    const legacy = legacyCommands.get('ponytail')
+    check(legacy({ agent, rawInput: 'default lite' }).kind === 'success', 'hosts without Settings must retain file persistence')
+    check(legacyPrompt.text({ agent: settingsAgent }) === getPonytailInstructions('full'), 'profile must outrank a saved legacy default')
+    check(legacy({ agent, rawInput: 'status' }).text.includes('profile configuration'), 'status must expose the overriding profile source')
   } finally {
     for (const cleanup of cleanups.reverse()) cleanup?.()
     if (previousDefault === undefined) delete process.env.PONYTAIL_DEFAULT_MODE

@@ -22,6 +22,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -164,6 +165,13 @@ export async function runDistChecks() {
     try {
       const doc = JSON.parse(readFileSync(provenancePath, 'utf8'))
       for (const message of validateProvenance(doc, 'packages/community/ponytail')) failures.push(message)
+      if (doc.downstreamBuild) {
+        for (const file of ['src/index.ts', 'src/client.ts', 'src/content.ts', 'src/instructions.ts',
+          'src/modes.ts', 'lib/index.js', 'lib/client.js']) {
+          const digest = createHash('sha256').update(readFileSync(join(repoRoot, file))).digest('hex')
+          check(doc.downstreamBuild.sha256?.[file] === digest, `downstream build hash stale: ${file}`)
+        }
+      }
     } catch (error) {
       failures.push(`dist-provenance.json: invalid JSON: ${error.message}`)
     }

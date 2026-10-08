@@ -67,7 +67,8 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
   - `/ponytail status`：只查询、永不修改，并显示当前模式来自会话覆盖还是配置默认值。
   - `/ponytail reset`：清除当前会话覆盖，重新跟随有效配置默认值。
   - `/ponytail lite|full|ultra|off`：显式切换。
-  - `/ponytail default <mode>`：持久化默认值到**用户级配置文件**（env/Profile 仍优先，命令分别提示 saved 与 effective）。
+  - `/ponytail help`：直接显示操作帮助，不调用模型。
+  - `/ponytail default <mode>`：有 DSH Settings 时保存到宿主设置；没有时回退到用户级配置文件（env/Profile 仍优先，命令分别提示 saved 与 effective）。
   - 状态操作立即生效，但不唤醒空闲 Agent；模型通知在下一次真实请求时接收，避免切档位额外触发模型调用。
 - **一次性技能**（用哪个载哪个，不进常驻 prompt）：
   - `/ponytail-review` — 针对最近改动找过度工程；每条包含位置、替代方案和实际调用证据，不猜测精确收益。
@@ -78,7 +79,7 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 - **停用**：说 `stop ponytail`、`normal mode`、`停止 ponytail`、`关闭 ponytail`、`普通模式` 或 `正常模式`（兼容中英文句末标点）；随时 `/ponytail` 恢复。
 - **默认值优先级**（代码/测试/文档一致）：
   ```
-  会话 override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > 用户 config.json > full
+  会话 override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > DSH Settings > 用户 config.json > full
   ```
   - **Profile 级配置**（Cordis 官方插件配置 API，各 profile 可不同）：
     ```yaml
@@ -94,6 +95,36 @@ dsh plugin --profile web add @mengyuly/dsh-ponytail
 - **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，但全局 system-prompt section 默认也会参与子代理的独立组装；这不是父代理 Prompt 或会话状态继承。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）只用于筛选能进入本 Prompt 管线的子代理，不是继承开关；无 preset 时不会被 matcher 排除。DSH 当前没有公开的父子 Prompt 继承 API，因此**不宣称父子 Prompt 继承**（有官方 API 后再考虑只读模式快照传播）。非法正则告警一次并 fail-open。
 - **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警。
 
+## 图形操作
+
+支持原生 `settingsScope`/`settings.plugin.item` 接口的 DSH Web 中，打开
+**设置 → 插件 → Ponytail**：选择默认模式、分别开关五个附加技能、保存设置，
+或一键恢复面板默认。选择「跟随现有配置」会沿用旧配置，不替用户覆盖环境变量或 Profile。
+面板默认值不是当前会话模式；已有会话覆盖不变，实际模式与来源用 `/ponytail status` 查询。
+附加技能开关不会移除常驻核心规则，只有 `off` 模式关闭规则注入。
+
+原生命令菜单支持时，裸 `/ponytail` 打开模式选择器，并提供状态、会话重置和帮助入口。
+有参数的命令、TUI/CLI 用法保持原样。没有这些界面服务的旧宿主保留命令与文件配置路径。
+保存失败不显示成功，面板保留修改；只读连接禁用写入。面板重置仅清除自身设置，
+不删除旧配置、不清除已有会话覆盖，也不请求模型工作。
+
+已在 WSL Debian 的真实 DSH checkout `b150a551` 上用隔离 profile 联调界面与文件设置。
+旧版仅有 `set/unset` 的 Settings scope 通过宿主原子 RPC 保存，仍保留版本冲突检查。
+DSH 宿主契约 peer 保留版本声明，但标记为包管理器可选，由实际宿主提供；
+`cordis` 与 `schemastery` 仍是必需的运行时 peer。正常安装不需要关闭自动 peer 安装，
+也不会为了安装本插件拉取整套 DSH 和尚未发布的 `dsh-type-meta`。
+「可选」仅指依赖解析：实际运行仍需要 DSH 的 systemPrompt、skills 等宿主服务，不能脱离 DSH 独立运行。
+
+开发者界面验证（工具安装在仓库外，不进入 npm 包）：
+```powershell
+$env:PONYTAIL_TOOL_ROOT = Join-Path $env:TEMP 'ponytail-ui-tools'
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0
+node scripts/build-ui.mjs
+node scripts/test-ui.mjs
+```
+`build-ui` 保留已有内联宿主依赖，编译下游规则片段、插件入口和浏览器界面，**不是权威 monorepo 完整重建**。
+`dist-provenance.json` 中旧 `sourceCommit` 表示基线，`downstreamBuild` 记录当前修改的源码和产物 SHA-256。
+
 ## 效率（条件性收益，非保证）
 
 Ponytail 会给每次模型请求增加一小段固定规则。它的收益是**有条件的**：
@@ -107,14 +138,25 @@ prompt 与推理开销变得更贵。
 
 | 档位 | 字符数 | UTF-8 字节 | 说明 |
 |------|--------|-----------|------|
-| lite | 1915 | 1917 | 实测生成 |
-| full | 3022 | 3038 | 实测生成 |
-| ultra | 2797 | 2813 | 实测生成 |
+| lite | 3911 | 3913 | 实测生成 |
+| full | 4818 | 4834 | 实测生成 |
+| ultra | 5034 | 5050 | 实测生成 |
 | off | 0 | 0 | 不注入 |
 
 这些是 **Prompt 体积测量，不是账单金额，也不是对所有模型成立的节省
 比例**（无统一 tokenizer，`measure:prompt` 输出中 `estimated_tokens` 为
-null；字符数/4 只是粗略估算）。同模式字节级稳定，KV-cache 前缀命中。
+null；字符数/4 只是粗略估算）。同模式字节级稳定，有利于 Prompt 缓存，但不保证宿主或模型缓存命中。
+
+所有启用档位均保留上游边界：修复前检查所有调用方、同等大小方案优先边界正确性、
+有已知局限的捷径留下 `ponytail: <ceiling>, <upgrade path>` 注释、保留硬件校准，
+以及完整回答用户明确要求的解释。规则仅用于编码任务，不改写一般问答或翻译。
+所有启用档位包含完整七阶梯。Lite 必须用一句话指出更简单的替代方案，但由用户选定范围；
+Full 执行阶梯；Ultra 执行阶梯并更积极质疑不必要的复杂度。几行代码足够时不得新增依赖，
+在正确完整的前提下触及最少文件；用户坚持完整版本后直接实现，不反复争辩。
+非平凡逻辑保留一个最小可运行检查，不擅自增加逐函数测试套件；简单一行代码不要求额外测试。
+`ponytail-debt` 支持块注释和 `lib` 源码，两条扫描路径均跳过嵌套依赖与构建目录。
+验证覆盖规则内容、真实搜索命令及安装产物与源码的 Prompt/Skill 一致性；
+这些检查不代表模型遵循率或实际性能已经通过对照评测。
 
 **上游数据不是本 DSH 适配版的保证**：上游 Ponytail 的 single-shot
 （代码 −80~94%、成本 −42~75%、延迟 3.1–5.8×）与 agentic（LOC −54% 等）
@@ -147,7 +189,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 ## 测试环境与权威关系
 
 - 本机（Linux，Node.js **v24.16.0**，deepseek-harness checkout 构建）与 CI 矩阵（**ubuntu-latest + windows-latest × Node 22/24**）上验证通过。与之精确匹配的已发布 DSH/Cordis 版本**待确认**——checkout 是预发布工作树，非发布 tag。
-- 权威源码在 deepseek-harness monorepo 的 `packages/community/ponytail`（`@deepseek-ai/dsh-ponytail`）；本仓库（`@mengyuly/dsh-ponytail`）是**发行镜像**：随包附构建产物，不是独立真源。
+- 历史宿主构建基线来自 deepseek-harness monorepo 的 `packages/community/ponytail`；当前 `@mengyuly/dsh-ponytail` 的下游适配修改以本仓库 `src/` 为准，随包附构建产物。
 
 ## 发行维护
 
@@ -157,7 +199,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 > `scripts/` 命令（无维护脚本入口、无安装生命周期钩子），由
 > `node scripts/verify-pack.mjs` 回归检查强制。
 
-- **权威源码**：deepseek-harness monorepo 的 `packages/community/ponytail`（本仓库是发行镜像，只随包发布构建产物）。
+- **构建来源**：monorepo 提供历史内联依赖基线；当前下游适配源码在本仓库。`build-ui` 与完整 `sync:dist` 的证据范围不同，不能混称。
 - **维护者命令**（源码仓库内直接运行 `node scripts/<script>.mjs`；快捷清单见
   `package.dev.json`）：
   ```bash
@@ -167,6 +209,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
   node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false 声明消费测试（对打包产物）
   node scripts/test-regressions.mjs    # 验证工具自身的回归测试
   node scripts/test-core.mjs           # 核心 Prompt 字节、安全边界、模式与 Skill 表面
+  node scripts/test-install.mjs        # pnpm 11 默认 peer 安装，无宿主源码树或规避配置
   node scripts/measure-prompt.mjs      # 各模式 Prompt 段体积（依赖未发布的 src/）
   node scripts/check-release-links.mjs # README/CHANGELOG/docs 无版本化 latest 资产链接
   node scripts/check-release-consistency.mjs --version <v>  # 四方发布一致性（git tag/npm/GitHub/provenance）

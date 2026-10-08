@@ -5,6 +5,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.4.0] - 2026-10-08
+
+### Added
+
+- Native Web settings card: default-mode selection, five optional-skill toggles,
+  atomic revision-fenced saves, panel-only reset, retained drafts on failure,
+  read-only guards, and Chinese/English help.
+- Optional native `/ponytail` mode picker; status/reset/help run through the
+  existing command boundary without requesting a model turn.
+- `/ponytail help` and detailed default-source status. DSH Settings persistence
+  is optional; legacy/headless deployments keep their config-file path.
+- Browser interaction tests and downstream build/source hash provenance.
+
+### Fixed
+
+- Normalize repository text line endings to LF so downstream SHA-256 build
+  provenance is reproducible across Windows and Linux checkouts.
+- Mark bundled DSH host-contract peers as optional for package resolution,
+  retaining their version contracts and required host services. Plain npm/pnpm
+  installs now resolve only the two runtime externals instead of following the
+  host's transitive unpublished `dsh-type-meta` peer. Add clean pnpm 11 default
+  installation and runtime-load regression coverage.
+- Restore the complete seven-rung ladder in every active prompt, mandatory
+  Lite alternatives, unnecessary-dependency and fewest-file guards, full-scope
+  acceptance without re-arguing, and upstream minimal-test limits. Full/Ultra
+  enforce the ladder; Lite leaves the scope choice to the user.
+- Downstream builds now compile the instruction fragment from source, avoiding
+  stale rules in the installed bundle.
+- Older DSH Web settings scopes now save through the host's atomic settings RPC,
+  preserving revision conflicts and surfacing write failures instead of calling
+  an unavailable `scope.mutate` method.
+- Restore explicit upstream rules in every active level: all-caller root-cause
+  checks, same-size algorithm edge cases, shortcut ceiling/upgrade annotations,
+  hardware calibration, requested explanations, and coding-only scope.
+- Debt scans now recognize block comments, keep source files under `lib`, and
+  exclude nested dependency/build output in both ripgrep and Git fallbacks.
+
+### Changed
+
+- Review prompt budgets around required semantics instead of enforcing the old
+  compressed sizes. Update bilingual measurements without claiming model savings.
+- Execute debt scan commands against controlled source/vendor/build fixtures;
+  verify exact installed/source prompt and skill parity in the pack smoke test.
+  These checks do not establish model compliance or performance.
+
 ## [0.3.4] - 2026-10-07
 
 ### Added

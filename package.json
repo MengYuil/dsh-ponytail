@@ -1,7 +1,7 @@
 {
   "name": "@mengyuly/dsh-ponytail",
   "description": "Lazy senior dev mode for DeepSeek Harness: always-on minimal-code ruleset, intensity switching, and short review/audit/debt/gain/help skills",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "publishConfig": {
     "access": "public"
   },
@@ -22,22 +22,35 @@
       "default": "./lib/invariant.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./client": { "default": "./lib/client.js" }
   },
   "files": [
     "README_EN.md",
     "dist-provenance.json",
     "CHANGELOG.md",
     "lib/index.js",
+    "lib/client.js",
     "lib/invariant.js",
     "lib/types/**/*.d.ts",
     "cordis.patch.yml"
   ],
   "license": "MIT",
   "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-client-ui-settings-plugins", "@deepseek-ai/dsh-client-ui-commands"]
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-commands": { "optional": true },
+    "@deepseek-ai/dsh-invariants": { "optional": true },
+    "@deepseek-ai/dsh-llm": { "optional": true },
+    "@deepseek-ai/dsh-skill": { "optional": true },
+    "@deepseek-ai/dsh-system-prompt": { "optional": true }
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0-rc <5",

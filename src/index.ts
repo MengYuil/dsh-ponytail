@@ -19,7 +19,8 @@ import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { renderSkillContent } from '@deepseek-ai/dsh-skill'
-import { unwatchFile, watchFile } from 'node:fs'
+import z from '@deepseek-ai/schemastery'
+import { readFileSync, unwatchFile, watchFile } from 'node:fs'
 import { ponytailSkills } from './content.ts'
 import { getPonytailInstructions } from './instructions.ts'
 import {
@@ -83,7 +84,28 @@ interface CommandDeps {
   readonly profileMode: PonytailRuntimeMode | null
   readonly defaultMode: () => PonytailRuntimeMode
   readonly setDefault: (mode: PonytailRuntimeMode) => void
+  readonly defaultSource: () => string
+  readonly settings: () => PreferencesScope | undefined
 }
+
+interface Preferences {
+  defaultMode: 'inherit' | PonytailRuntimeMode
+  disabledSkills: string[]
+}
+
+interface PreferencesScope {
+  get(): Preferences
+  watch(listener: () => void): () => void
+  update(patch: Partial<Preferences>): Promise<void>
+}
+
+const OPTIONAL_SKILLS = ['ponytail-review', 'ponytail-audit', 'ponytail-debt', 'ponytail-gain', 'ponytail-help']
+const PreferencesSchema = z.object({
+  defaultMode: z.union(['inherit', 'off', 'lite', 'full', 'ultra']).default('inherit'),
+  disabledSkills: z.array(z.union(OPTIONAL_SKILLS)).default([]),
+})
+
+const COMMAND_HELP = 'Ponytail: /ponytail lite|full|ultra|off switches this session; /ponytail status shows the mode and its source; /ponytail reset follows defaults; /ponytail default <mode> saves a default. Web: Settings → Plugins → Ponytail. Additional skills: /ponytail-review, /ponytail-audit, /ponytail-debt, /ponytail-gain, /ponytail-help.'
 
 /** Mode visible to one agent: its session override, else the configured default. */
 function modeFor(deps: CommandDeps, agent: Agent): PonytailRuntimeMode {
@@ -118,17 +140,34 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
   commandCtx.commands.register({
     name: 'ponytail',
     description: 'Set or show Ponytail lazy senior dev intensity',
-    input: { hint: '[status|reset|default <mode>|lite|full|ultra|off]' },
-    handler: ({ agent, rawInput }): CommandResult => {
+    input: { hint: '[help|status|reset|default <mode>|lite|full|ultra|off]' },
+    handler: ({ agent, rawInput }): CommandResult | Promise<CommandResult> => {
       const input = rawInput.trim().toLowerCase()
       const [head, ...rest] = input.split(/\s+/).filter(Boolean)
       const partsHead = head ?? ''
+      if (input === 'help') return { kind: 'success', text: COMMAND_HELP }
 
       // `/ponytail default <mode>` persists the default for future sessions.
       // The env var (and the profile config) still outrank the saved value, so
       // the effective default is recomputed after the write instead of
       // trusting the saved one.
       if (partsHead === 'default') {
+        const settings = deps.settings()
+        if (settings) {
+          const target = normalizeRuntimeMode(rest[0])
+          if (!target || rest.length !== 1) return { kind: 'error', text: 'Usage: /ponytail default [lite|full|ultra|off]' }
+          return settings.update({ defaultMode: target }).then(() => {
+            const effective = deps.defaultMode()
+            const reason = defaultOverrideReason(process.env, deps.profileMode)
+            const notice = reason
+              ? `PONYTAIL DEFAULT SET — saved ${target}, effective ${effective} (${reason}).`
+              : `PONYTAIL DEFAULT SET — new sessions start in ${target}.`
+            agent.inject(createUserMessage({ content: [{ type: 'text', text: notice }], source: { kind: 'plugin', plugin: name } }))
+            return { kind: 'success' as const, text: reason
+              ? `Saved default: ${target}. Effective default: ${effective}, overridden by ${reason}.`
+              : `Ponytail default set — new sessions start in ${target}.` }
+          }).catch(error => ({ kind: 'error' as const, text: `Failed to save default: ${error.message}` }))
+        }
         let written: PonytailRuntimeMode | null
         try {
           written = writeDefaultMode(rest[0])
@@ -163,7 +202,8 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
       if (input === 'status') {
         const current = modeFor(deps, agent)
         const source = deps.store.has(sessionKey(agent)) ? 'session override' : 'configured default'
-        return { kind: 'success', text: `Ponytail mode: ${current} (${source}). Use /ponytail reset|lite|full|ultra|off.` }
+        const disabled = deps.settings()?.get().disabledSkills ?? []
+        return { kind: 'success', text: `Ponytail mode: ${current} (${source}). Default: ${deps.defaultMode()} (${deps.defaultSource()}). Disabled skills: ${disabled.join(', ') || 'none'}. Use /ponytail help|reset|lite|full|ultra|off.` }
       }
 
       // `/ponytail reset` removes the session override and follows the
@@ -255,6 +295,7 @@ function descriptionFor(skill: string): string {
  * commands, and the plain-text deactivation listener.
  */
 export function apply(ctx: Context, config: PonytailConfig = {}): void {
+  let preferences: PreferencesScope | undefined
   // Cordis profile-level default (set per profile via the bundle row's
   // `config`). Read once at mount: cordis exposes no stable public config-
   // change event (only the internal update waterfall), so profile changes
@@ -268,6 +309,13 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
   // Process-level effective default, resolved lazily so a broken config warns
   // once (not per request); `/ponytail default` and the watcher refresh it.
   let defaultMode: PonytailRuntimeMode | null = null
+  let legacyDefaultSource = 'built-in fallback'
+  const updateLegacySource = (): void => {
+    try {
+      const document = JSON.parse(readFileSync(configPath(), 'utf8').replace(/^\uFEFF/, ''))
+      legacyDefaultSource = normalizeRuntimeMode(document?.defaultMode) ? 'user config.json' : 'built-in fallback'
+    } catch { legacyDefaultSource = 'built-in fallback' }
+  }
   const warned = new Set<string>()
   const warnOnce = (key: string, message: string): void => {
     if (warned.has(key)) return
@@ -280,10 +328,20 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
       warnOnce(`default:${resolution.issue.kind}`, `${resolution.issue.detail}; using ${resolution.mode}`)
     }
     defaultMode = resolution.mode
+    updateLegacySource()
     return defaultMode
   }
-  const readDefault = (): PonytailRuntimeMode => (defaultMode ?? refreshDefault())
-  const setDefault = (mode: PonytailRuntimeMode): void => { defaultMode = mode }
+  const readDefault = (): PonytailRuntimeMode =>
+    normalizeRuntimeMode(process.env.PONYTAIL_DEFAULT_MODE) ?? profileMode
+    ?? normalizeRuntimeMode(preferences?.get().defaultMode) ?? defaultMode ?? refreshDefault()
+  const defaultSource = (): string => {
+    const priority = defaultOverrideReason(process.env, profileMode)
+    if (priority) return priority
+    if (normalizeRuntimeMode(preferences?.get().defaultMode)) return 'DSH settings'
+    if (defaultMode === null) refreshDefault()
+    return legacyDefaultSource
+  }
+  const setDefault = (mode: PonytailRuntimeMode): void => { defaultMode = mode; updateLegacySource() }
 
   const store = new ModeStore()
   const matcherResult = compileSubagentMatcher(process.env.PONYTAIL_SUBAGENT_MATCHER)
@@ -308,6 +366,7 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
       return
     }
     defaultMode = resolution.mode
+    updateLegacySource()
   }
   watchFile(configFile, { interval: 1000 }, onConfigChange).unref()
   ctx.effect(() => () => { unwatchFile(configFile, onConfigChange) }, 'ponytail: config hot reload')
@@ -334,15 +393,39 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
     },
   })
 
-  // Six runtime skills: discoverable in the model catalog and the slash menu.
-  for (const skill of ponytailSkills()) {
-    ctx.skills.register(skill)
+  // Re-register only affected one-shot skills; disabling them never removes
+  // the always-on ruleset or the persona pointer.
+  const registered = new Map<string, () => void>()
+  const refreshSkills = (): void => {
+    const disabled = new Set(preferences?.get().disabledSkills ?? [])
+    for (const skill of ponytailSkills()) {
+      if (disabled.has(skill.name) && registered.has(skill.name)) {
+        registered.get(skill.name)?.()
+        registered.delete(skill.name)
+      } else if (!disabled.has(skill.name) && !registered.has(skill.name)) {
+        registered.set(skill.name, ctx.skills.register(skill))
+      }
+    }
   }
+  refreshSkills()
+  // Optional host settings: headless/older deployments keep their existing
+  // file and command paths without acquiring a new required service.
+  ctx.inject(['settings'], settingsCtx => {
+    const settings = (settingsCtx as unknown as { settings?: {
+      register(name: string, schema: unknown, options: { applies: string }): PreferencesScope
+    } }).settings
+    if (!settings || typeof settings.register !== 'function') return
+    preferences = settings.register('ponytail', PreferencesSchema, { applies: 'live' })
+    refreshSkills()
+    const scope = preferences
+    settingsCtx.effect(() => scope.watch(refreshSkills), 'ponytail: live skill preferences')
+    settingsCtx.effect(() => () => { preferences = undefined; refreshSkills() }, 'ponytail: preferences detach')
+  })
 
   // Human slash commands; the child activates only when the TUI/web mounts a
   // command registry (headless automation never composes it).
   ctx.inject(['commands'], (commandCtx) => {
-    registerCommands({ ctx, store, profileMode, defaultMode: readDefault, setDefault }, commandCtx)
+    registerCommands({ ctx, store, profileMode, defaultMode: readDefault, setDefault, defaultSource, settings: () => preferences }, commandCtx)
   })
 
   // Plain-text "stop ponytail" / "normal mode" deactivation, matched on the

@@ -119,8 +119,9 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
   - `/ponytail reset`: clears the current session override and follows the
     effective configured default again.
   - `/ponytail lite|full|ultra|off`: explicit switch.
-  - `/ponytail default <mode>`: persists the default to the **user-level
-    config file** (env/profile still take priority; the command reports both
+  - `/ponytail help`: displays command help without calling the model.
+  - `/ponytail default <mode>`: persists through DSH Settings when available,
+    otherwise the user-level config file (env/profile still take priority; the command reports both
     `saved` and `effective`).
   - Status changes take effect immediately without waking an idle agent.
     Notices reach the model on its next real step, avoiding an extra model
@@ -142,7 +143,7 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
   punctuation tolerated); `/ponytail` re-enables at any time.
 - **Default priority** (consistent across code/tests/docs):
   ```
-  session override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > user config.json > full
+  session override > PONYTAIL_DEFAULT_MODE > Profile config.defaultMode > DSH Settings > user config.json > full
   ```
   - **Profile-level config** (official Cordis plugin config API; each profile
     can differ):
@@ -176,6 +177,43 @@ effect. Once loaded, the session skill catalog shows 6 `ponytail*` skills; send
   invalid regex warn exactly once (no log spam); a missing config file is
   normal and never warns.
 
+## Graphical controls
+
+On DSH Web hosts with the native `settingsScope`/`settings.plugin.item` APIs,
+open **Settings → Plugins → Ponytail** to select a default mode, toggle five
+optional skills, save, or reset panel defaults. “Follow existing configuration”
+preserves legacy configuration. Environment/profile values still take priority;
+existing session overrides stay intact. Use `/ponytail status` for the actual
+session mode and source. Optional-skill toggles never remove the core rules.
+
+When supported, bare `/ponytail` opens a native picker with mode/status/reset/help
+actions. Argued commands and TUI/CLI behavior remain unchanged. Older hosts
+without these services keep the command/config-file paths. Failed saves retain
+drafts; read-only connections cannot write. Panel reset clears only its own
+overrides, not legacy files or session state, and requests no model work.
+
+The native UI and file-backed settings were integration-tested in an isolated
+profile on the real WSL Debian DSH checkout `b150a551`. Older Settings scopes
+with only `set/unset` save through the host's atomic RPC with revision checks.
+DSH contract peers retain their version ranges but are optional for package
+resolution and supplied by the host. Cordis and schemastery remain required
+runtime peers. Normal installation needs no auto-peer workaround and does not
+fetch a second DSH or the unpublished `dsh-type-meta` peer. Optional metadata
+does not make host services optional: runtime still requires DSH systemPrompt,
+skills, and the other services used by the plugin.
+
+Developer UI checks use isolated tools, excluded from the npm tarball:
+```powershell
+$env:PONYTAIL_TOOL_ROOT = Join-Path $env:TEMP 'ponytail-ui-tools'
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0
+node scripts/build-ui.mjs
+node scripts/test-ui.mjs
+```
+`build-ui` retains baseline inlined host dependencies and compiles downstream
+rule fragments and entry/UI code; it is **not an authoritative monorepo rebuild**. Provenance's
+`sourceCommit` identifies the baseline; `downstreamBuild` records current source
+and artifact hashes.
+
 ## Efficiency (conditional gains, not guarantees)
 
 Ponytail adds a small fixed ruleset to every model request. Its benefit is
@@ -192,15 +230,33 @@ scripts/measure-prompt.mjs`, generated from the real
 
 | Level | Characters | UTF-8 bytes | Notes |
 |------|--------|-----------|------|
-| lite | 1915 | 1917 | measured output |
-| full | 3022 | 3038 | measured output |
-| ultra | 2797 | 2813 | measured output |
+| lite | 3911 | 3913 | measured output |
+| full | 4818 | 4834 | measured output |
+| ultra | 5034 | 5050 | measured output |
 | off | 0 | 0 | not injected |
 
 These are **prompt-size measurements, not billing amounts, and not a savings
 ratio that holds for every model** (there is no universal tokenizer;
 `estimated_tokens` in `measure:prompt` output is null; characters/4 is only a
-rough estimate). Same-mode output is byte-stable, so KV-cache prefixes hit.
+rough estimate). Same-mode output is byte-stable, which helps prompt caching,
+but does not guarantee a host or model cache hit.
+
+Every active level preserves upstream boundaries: check all callers before a
+bug fix, prefer edge-case correctness between same-size options, annotate real
+shortcuts with `ponytail: <ceiling>, <upgrade path>`, retain hardware calibration,
+and give explicitly requested explanations in full. Rules apply to coding only,
+not unrelated prose or translation. Debt scans support block comments and `lib`
+sources; both scan paths exclude nested dependency and build directories.
+Checks cover prompt contracts, actual scan commands, and exact installed/source
+prompt and skill parity, not model compliance rates or measured performance.
+
+Every active prompt contains the complete seven-rung ladder. Lite must name a
+simpler alternative in one line while leaving scope to the user; Full enforces
+the ladder; Ultra enforces it and challenges unnecessary complexity more actively.
+Do not add dependencies for work a few lines can do; touch the fewest files that
+deliver a correct complete fix. If the user insists on full scope, build it
+without re-arguing. Non-trivial logic keeps one minimal runnable check, not an
+unrequested per-function suite; trivial one-liners need no extra test.
 
 **Upstream numbers are not a guarantee for this DSH port**: the upstream
 Ponytail single-shot results (code −80–94%, cost −42–75%, latency 3.1–5.8×)
@@ -245,11 +301,9 @@ benchmark provides directional evidence only (see
   build) and in the CI matrix (**ubuntu-latest + windows-latest × Node
   22/24**). The exact published DSH/Cordis release they correspond to is
   **TBD** — the checkout is a prerelease working tree, not a release tag.
-- The authoritative source is `packages/community/ponytail`
-  (`@deepseek-ai/dsh-ponytail`) in the deepseek-harness monorepo; this
-  repository (`@mengyuly/dsh-ponytail`) is a **distribution mirror**: it
-  ships build artifacts with the package and is not an independent source of
-  truth.
+- The historical host build baseline is `packages/community/ponytail` in the
+  deepseek-harness monorepo. Current `@mengyuly/dsh-ponytail` downstream changes
+  are maintained in this repository's `src/`, alongside shipped artifacts.
 
 ## Release maintenance
 
@@ -261,9 +315,9 @@ benchmark provides directional evidence only (see
 > commands (no maintenance entry points, no install lifecycle hooks),
 > enforced by a regression check in `node scripts/verify-pack.mjs`.
 
-- **Authoritative source**: `packages/community/ponytail` in the
-  deepseek-harness monorepo (this repository is a distribution mirror that
-  publishes build artifacts only).
+- **Build sources**: the monorepo supplies the historical inlined dependency
+  baseline; this repository owns current downstream source. `build-ui` and a
+  full `sync:dist` provide different evidence and must not be conflated.
 - **Maintainer commands** (run `node scripts/<script>.mjs` inside the source
   repository; see `package.dev.json` for the shortcut list):
   ```bash
@@ -273,6 +327,7 @@ benchmark provides directional evidence only (see
   node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false declaration consumer test (against the packed artifact)
   node scripts/test-regressions.mjs    # regression tests for the verification tooling itself
   node scripts/test-core.mjs           # core prompt bytes, safety boundaries, modes and skill surface
+  node scripts/test-install.mjs        # pnpm 11 default peer installation, no host tree/workaround
   node scripts/measure-prompt.mjs      # prompt-section size per mode (depends on the unpublished src/)
   node scripts/check-release-links.mjs # README/CHANGELOG/docs contain no versioned latest asset links
   node scripts/check-release-consistency.mjs --version <v>  # four-way release consistency (git tag/npm/GitHub/provenance)
