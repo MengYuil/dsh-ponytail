@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.4.2] - 2026-10-13
+
+### Fixed
+
+- Use producer-owned `ponytail` message sources for mode/default/reset and
+  plain-text deactivation notices, instead of the retired `plugin` wrapper
+  rejected by V4 sessions (#3). Preserve rule injection and skill attribution.
+- Check all notice paths from the packed plugin with the real upstream V4
+  admission gate, including native Settings and legacy file-backed defaults.
+
+### Added
+
+- Linux real DSH 0.2.0-rc.2 persistence regression and dedicated CI job:
+  durable writes, normal restart, SIGKILL after flush, exact-prefix recovery,
+  continued writes and projection checkpoints. Offline model adapter only.
+
+### Changed
+
+- Regenerate entry declarations during downstream builds; verify producer
+  attribution types with and without optional host type declarations.
+- Synchronize bilingual compatibility/recovery documentation, maintainer
+  commands, security boundaries and version links. Remove the stale version
+  example from the release-consistency workflow.
+
 ## [0.4.1] - 2026-10-08
 
 ### Changed

@@ -11,6 +11,16 @@ const require = createRequire(resolve(process.env.PONYTAIL_TOOL_ROOT ?? '.', 'pa
 const ts = require('typescript')
 const esbuild = require('esbuild')
 const source = readFileSync('src/index.ts', 'utf8')
+const declarations = ts.transpileDeclaration(source, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  reportDiagnostics: true,
+})
+if (declarations.diagnostics?.length) {
+  throw new Error(ts.formatDiagnostics(declarations.diagnostics, {
+    getCanonicalFileName: file => file, getCurrentDirectory: () => process.cwd(), getNewLine: () => '\n',
+  }))
+}
+writeFileSync('lib/types/index.d.ts', declarations.outputText)
 const result = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   transformers: { before: [context => file => ts.factory.updateSourceFile(file,

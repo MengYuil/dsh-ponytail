@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test:install": "node scripts/test-install.mjs",
+    "test:persistence": "node scripts/test-persistence.mjs",
     "sync:dist": "node scripts/sync-dist.mjs",
     "build:ui": "node scripts/build-ui.mjs",
     "test:ui": "node scripts/test-ui.mjs",

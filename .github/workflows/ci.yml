@@ -31,7 +31,7 @@ jobs:
         env:
           PONYTAIL_TOOL_ROOT: ${{ runner.temp }}/ponytail-ui-tools
         run: node scripts/test-ui.mjs
-      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (tarball contents, version match, installed smoke)"
+      - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Pack verification (installed smoke, real Cordis and V4 notice admission)"
         run: node scripts/verify-pack.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Default pnpm peer installation regression"
         run: node scripts/test-install.mjs
@@ -43,3 +43,25 @@ jobs:
         run: node scripts/test-release-retry.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: node scripts/test-consumer.mjs
+
+  persistence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Real DSH 0.2.0-rc.2 V4 persistence and restart regression
+        env:
+          TMPDIR: ${{ runner.temp }}
+          PONYTAIL_VERIFY_KEEP_TEMP: '1'
+        run: node scripts/test-persistence.mjs
+      - name: Retain persistence evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponytail-v4-persistence
+          path: ${{ runner.temp }}/ponytail-persistence-*/evidence
+          if-no-files-found: warn
+          retention-days: 14

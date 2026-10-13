@@ -14,12 +14,12 @@
     "typescript": "6.0.3",
     "esbuild": "0.28.2",
     "sha256": {
-      "src/index.ts": "8421733adf8c801c1578b070cf789b5bd77588acbe90403dd69ee5467375c955",
+      "src/index.ts": "e762cdd47f3bfe2ed457564b0f7df0715488ed9fafdee3da6a8e288de2a6abe9",
       "src/client.ts": "faca913a8b0348e89f67853a1e07bd4eefa0236b491f957c71fea3a914c51271",
       "src/content.ts": "e9f6de036af5233a5ca6ab258be5ba821f8e072065fa43b0c700d2fac42a3095",
       "src/instructions.ts": "d96deb078f6f633fffb0e3da2750eb9d3afb37bce4cea11145db045c8cceb935",
       "src/modes.ts": "74b8b885d145759ce17007a054ab6adc295f726f47518f56a3d37de67bd14231",
-      "lib/index.js": "b65a606716bc0e1ab0f8d26262eebd07cefe130373e90fae8324b7101ca9b581",
+      "lib/index.js": "bcfa7176be907d219e530b63b31558a08dbc0aa0ab41ab03188befc6fcb1578a",
       "lib/client.js": "3a57ec216b96944b404d42fc303e3b7681e9c7b0a909bb25cda98820038aba9c"
     }
   }

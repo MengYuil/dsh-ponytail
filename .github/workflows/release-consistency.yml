@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Published version to verify (e.g. 0.3.2)'
+        description: 'Published package version to verify (without the v prefix)'
         required: true
         type: string
   release:

@@ -15,15 +15,15 @@
 
 - **最新版（latest）**：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本 v0.4.1**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.1/mengyuly-dsh-ponytail.tgz`
+- **固定版本 v0.4.2**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.2/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
 - **latest**：适合快速安装体验，会随最新 Release 更新；固定资产名
   `mengyuly-dsh-ponytail.tgz` 在每个 Release 中保持不变，因此该 URL
   不会因版本号变化而失效，**不适合作为不可变依赖**。
-- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.4.1`），按 Tag
+- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.4.2`），按 Tag
   不可变；资产名同样为 `mengyuly-dsh-ponytail.tgz`。
 - npm 安装仍走 npm Registry 或 `dsh plugin` 命令。
 - 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`node scripts/release-assets.mjs`，仅仓库维护者）。
@@ -33,7 +33,7 @@
 装进某个 profile（`web` 可换成 `tui`/自定义名）：
 
 推荐从 npm 安装稳定版：`dsh plugin --profile web add @mengyuly/dsh-ponytail`。
-需要固定本版时使用 `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.1`。
+需要固定本版时使用 `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.2`。
 
 ```bash
 # 方式一：本地链接（当前 dsh 核 ≥ 0.1.x）
@@ -184,17 +184,35 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 - 档位差异在**规则语义**上（见上），三者 Prompt 体积相近（实测见上表）。
 - 上游 Claude 专属的 statusline 徽标无 DSH 对应物，MCP 服务器因 DSH 有一等 system-prompt 注入点而弃用。
 - 用户 `config.json` 热更新；`PONYTAIL_DEFAULT_MODE` 与 Profile config 需重启生效。
+- 会话模式覆盖只保存在内存；重启后跟随保存的默认模式，不会恢复重启前的会话覆盖。
 - 发行 `lib/` 是预编译产物；下游修改在本仓库构建，并核对安装包与源码的一致性。
+
+## V4 会话兼容与恢复
+
+0.4.2 修复 [issue #3](https://github.com/MengYuil/dsh-ponytail/issues/3)：
+模式切换、默认设置、重置和文本关闭通知使用生产者来源 `kind: 'ponytail'`，
+不再写入 V4 拒绝的旧 `kind: 'plugin'`。规则内容、模式优先级和显式技能调用来源未改变，
+模式通知仍不会额外唤醒模型。
+
+真实 DSH **0.2.0-rc.2 / Cordis 4.0.4 / Schemastery 3.18.4** 核心流程已验证：
+V4 落盘、正常重启恢复、flush 后强制终止恢复、后续写入与投影缓存更新。
+本地一次完整运行保留 189 条事件、12 个回合，并逐条比较历史前缀。
+使用本地固定回复适配器，不调用付费模型；不是新版 Web 设置验收或模型效果评测。
+详见 [验证范围与复跑说明](https://github.com/MengYuil/dsh-ponytail/blob/master/docs/v4-persistence.md)。
+
+如果旧版已出现保存阻塞，先备份当前可见的未保存内容，再升级并重启宿主。
+本修复防止新的旧来源事件，不会自动清理已污染的内存缓冲，也不保证未落盘内容可恢复。
 
 ## 兼容矩阵（实测，不虚构）
 
 | 组件 | 已验证环境 | 备注 |
 |---|---|---|
-| Node.js | 22.x / 24.x | CI 矩阵 4 组合全绿 |
+| Node.js | 22.x / 24.x | 基础 CI 矩阵；V4 持久化集成使用 Linux Node 24 |
 | OS | ubuntu-24.04 / windows-latest | CI 矩阵 |
-| DSH | commit `b150a551`（构建所用 checkout） | 与正式发布版本的精确对应关系**待确认** |
-| Cordis | 4.0.1（构建所用 vendor） | 同上 |
-| web profile | 已验证 | WSL Debian 隔离真实 DSH：加载、保存/重启持久化、优先级、技能开关及命令；npm/pnpm 安装验证 |
+| DSH 历史宿主 | checkout `b150a551` / CLI 0.1.1-rc.2 | 历史构建与 Web 联调，不代表所有发行版 |
+| DSH V4 核心 | npm 0.2.0-rc.2 | 真实 Agent/命令/JSONL/投影缓存，正常与强制终止后恢复 |
+| Cordis / Schemastery | 4.0.4 / 3.18.4 | V4 实测；历史内联基线 Cordis 4.0.1 |
+| web profile | 旧宿主已验证 | 加载、Settings 保存/重启、优先级、技能开关；新版 0.2.0-rc.2 Web 未复测 |
 | tui profile | 未验证 | 未在 tui profile 中启动测试 |
 | headless profile | 未验证 | 未完整启动；插件单元测试运行于无 UI 环境 |
 | npm tarball | 已验证 | 内容/版本/安装后 smoke/NodeNext consumer |
@@ -205,6 +223,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
 ## 测试环境与权威关系
 
 - 本机 WSL Debian（Node.js **v24.16.0**，DSH checkout CLI 标识 **0.1.1-rc.2**）、Windows Node 24 与 CI（**ubuntu-24.04 + windows-latest × Node 22/24**）上验证。真实宿主 checkout 为 `b150a551`，不是正式发布 tag；不能据此声称所有 DSH 发布版本都兼容。
+- V4 持久化独立使用 npm DSH 0.2.0-rc.2 的真实核心服务和隔离目录；默认值测试覆盖旧 `config.json` 兼容路径，不包括新版 Web 原生 Settings/技能开关复测。
 - 历史宿主构建基线来自 deepseek-harness monorepo 的 `packages/community/ponytail`；当前 `@mengyuly/dsh-ponytail` 的下游适配修改以本仓库 `src/` 为准，随包附构建产物。
 
 ## 发行维护
@@ -222,6 +241,7 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
   node scripts/check-bundle.mjs        # Bundle 外部依赖白名单 + 无 new Function/eval
   node scripts/verify-dist.mjs         # 静态一致性：src/d.ts 导出一致、关键签名、运行时导出、provenance
   node scripts/verify-pack.mjs         # tarball 边界（含无 scripts/ 暴露回归检查）、版本、安装后 smoke
+  node scripts/test-persistence.mjs    # Linux/WSL：真实 DSH V4 写入、重启/强制终止恢复与缓存；无付费模型
   node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false 声明消费测试（对打包产物）
   node scripts/test-regressions.mjs    # 验证工具自身的回归测试
   node scripts/test-core.mjs           # 核心 Prompt 字节、安全边界、模式与 Skill 表面
@@ -236,7 +256,8 @@ Smoke Benchmark 只提供方向性证据（见 `docs/dsh-smoke-summary.md`）。
   ```
   该命令重建宿主 checkout 的基线，并覆盖本仓库的源码、JS、声明和 provenance。
   **仅在下游修改已经同步到该 checkout、且确认需要完整重建时使用**；不应作为日常下游构建命令。
-- **CI 能力边界（如实）**：CI 执行静态验证、源码/下游产物哈希及打包/消费测试，
+- **CI 能力边界（如实）**：CI 执行静态验证、源码/下游产物哈希、打包/消费测试和真实 V4 消息校验，
+  独立 Linux 任务执行真实 DSH 持久化与恢复测试并保存证据；
   **不重新构建宿主 monorepo**。这些检查不证明当前下游产物等同于宿主基线的全量重新构建，也不证明模型服从率或效率收益。
 - `dist-provenance.json` 随 npm 包发布，便于审计构建来源。
 - 本机验证时若 `npm_execpath` 指向其他包管理器（如 pnpm/yarn shim），脚本会自动回退到 PATH 上的 `npm`；临时目录失败时保留需设 `PONYTAIL_VERIFY_KEEP_TEMP=1`。

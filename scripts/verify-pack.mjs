@@ -34,6 +34,7 @@ const failures = []
 const check = (condition, message) => { if (!condition) failures.push(message) }
 
 const work = tempWork('ponytail-pack-')
+const formatWork = tempWork('ponytail-v4-format-')
 try {
   const packed = runNpm(['pack', '--json', '--pack-destination', work.dir], repoRoot)
   const packJson = JSON.parse(packed.stdout)
@@ -103,6 +104,14 @@ try {
   console.log(`verify-pack: installed @deepseek-ai/* deps: ${installed.join(', ') || '(none)'}`)
   console.log(`verify-pack: declared peers: ${peers.join(', ')} (host-contract; the bundle imports @deepseek-ai/cordis + @deepseek-ai/schemastery at runtime)`)
 
+  // Test-only dependency in a separate tree from the plugin-only installation.
+  // Use the real V4 admission boundary, not a locally copied source predicate.
+  runNpm(['install', '--ignore-scripts', '@deepseek-ai/dsh-session-format-v3-to-v4@0.1.7-alpha.1'], formatWork.dir)
+  const { assertV4RowAdmission } = await import(pathToFileURL(join(formatWork.dir,
+    'node_modules/@deepseek-ai/dsh-session-format-v3-to-v4/lib/index.js')).href)
+  const admit = message => assertV4RowAdmission({ type: 'user/message', seq: 0, time: Date.now(), data: message })
+  let preStep
+
   // The installed package (name read dynamically from package.json) must not
   // carry development scripts either.
   check(!existsSync(join(installedPkgDir, 'scripts')),
@@ -138,7 +147,7 @@ try {
   const fakeCtx = {
     logger: { warn() {} },
     effect(factory) { cleanups.push(factory()) },
-    on() {},
+    on(event, listener) { if (event === 'agent/pre-step') preStep = listener },
     systemPrompt: { section(section) { promptSection = section } },
     skills: {
       register(skill) { skills.set(skill.name, skill); return () => skills.delete(skill.name) },
@@ -261,6 +270,49 @@ try {
     check(legacy({ agent, rawInput: 'default lite' }).kind === 'success', 'hosts without Settings must retain file persistence')
     check(legacyPrompt.text({ agent: settingsAgent }) === getPonytailInstructions('full'), 'profile must outrank a saved legacy default')
     check(legacy({ agent, rawInput: 'status' }).text.includes('profile configuration'), 'status must expose the overriding profile source')
+    // Cover the file-backed default notice both with and without an override.
+    mod.apply(legacyCtx, {})
+    check(legacyCommands.get('ponytail')({ agent, rawInput: 'default full' }).kind === 'success',
+      'legacy default without a profile override must succeed')
+    for (const text of ['stop ponytail', '普通模式']) {
+      const decision = await preStep({ agent, messages: [{ content: [{ type: 'text', text }] }] },
+        async () => ({ kind: 'enter', messages: [] }))
+      check(decision.kind === 'enter' && decision.messages.length === 1,
+        'plain-text deactivation must append its notice')
+      injected.push(...decision.messages)
+    }
+    // All nine producer sites, including bare reactivation and both persistence
+    // paths, must emit durable V4 messages without waking a model turn.
+    for (const message of injected) {
+      admit(message)
+      check(message.source.kind === 'ponytail', 'mode notices must identify Ponytail as their producer')
+    }
+    for (const message of followed) {
+      admit(message)
+      check(message.source.kind === 'skill-invocation', 'explicit skill invocation attribution must remain unchanged')
+    }
+    // Also mount the shipped entry through real Cordis injection/lifecycle.
+    // Host services remain controlled; the Context and V4 admission are real.
+    const { Context } = await import(pathToFileURL(join(work.dir,
+      'node_modules/@deepseek-ai/cordis/lib/index.js')).href)
+    const ctx = new Context()
+    const realCommands = new Map()
+    ctx.provide('systemPrompt', { section() {} })
+    ctx.provide('skills', { register() { return () => {} } })
+    ctx.provide('commands', { register(command) { realCommands.set(command.name, command.handler) } })
+    const fiber = ctx.plugin(mod, { defaultMode: 'full' })
+    try {
+      await fiber
+      const handler = realCommands.get('ponytail')
+      check(typeof handler === 'function', 'real Cordis must mount the Ponytail commands')
+      const realAgent = { id: 'v4-cordis-session', inject: admit }
+      for (const rawInput of ['lite', 'full', 'ultra', 'off', '', 'reset', 'default lite']) {
+        check((await handler({ agent: realAgent, rawInput })).kind === 'success',
+          `real Cordis ${rawInput || 'bare command'} must emit an admitted notice`)
+      }
+    } finally {
+      await fiber.dispose()
+    }
   } finally {
     for (const cleanup of cleanups.reverse()) cleanup?.()
     if (previousDefault === undefined) delete process.env.PONYTAIL_DEFAULT_MODE
@@ -271,6 +323,7 @@ try {
   check(existsSync(join(installedPkgDir, 'lib', 'types', 'modes.d.ts')), 'installed package missing modes.d.ts')
 } finally {
   work.cleanup()
+  formatWork.cleanup()
 }
 
 if (failures.length > 0) {

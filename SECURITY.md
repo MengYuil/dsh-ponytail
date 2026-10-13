@@ -16,6 +16,13 @@ scripts.
 `scripts/lib/run-command.mjs` and `scripts/sync-dist.mjs` use
 `node:child_process.spawnSync` to run local verification and build tools.
 
+`scripts/test-persistence.mjs` starts four isolated real DSH test processes
+on Linux. Its test-only host helper sends SIGKILL to itself after a durability
+barrier, then the runner checks recovery in a new process. It never terminates
+user processes or uses user profiles/credentials; only an offline fixed-response
+model adapter is registered. This integration tooling is also excluded from
+the npm tarball and all runtime/install entry points.
+
 They execute only when a maintainer explicitly runs the corresponding
 repository-maintainer command (`node scripts/...`, see `package.dev.json`).
 This is an intentional capability of local build tooling, not part of

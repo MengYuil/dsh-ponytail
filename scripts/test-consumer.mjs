@@ -41,12 +41,15 @@ try {
 
   writeFileSync(join(work.dir, 'consumer.mts'), [
     `import { apply, containsDeactivation, inject, messageText, name } from '${pkg.name}';`,
+    `import type { PonytailMessageSource } from '${pkg.name}';`,
+    `const source: PonytailMessageSource = { kind: 'ponytail' };`,
     `const entry: string = name;`,
     `const deps: string[] = inject;`,
     `const hit: boolean = containsDeactivation([{ content: [{ type: 'text', text: 'stop ponytail' }] }]);`,
     `const body: string = messageText({ content: [{ type: 'text', text: 'hello' }] });`,
     `const fn: typeof apply = apply;`,
     `void entry; void deps; void hit; void body; void fn;`,
+    `void source;`,
     '',
   ].join('\n'))
 
@@ -60,10 +63,22 @@ try {
       noEmit: true,
       types: ['node'],
     },
-    include: ['consumer.mts'],
+    include: ['consumer.mts', 'host-contract.d.ts'],
   }, null, 2))
 
   const tscEntry = join(work.dir, 'node_modules', 'typescript', 'lib', 'tsc.js')
+  runNode(tscEntry, ['-p', join(work.dir, 'tsconfig.json')], work.dir)
+  // Minimal host type fixture: check merging without requiring an entire DSH
+  // installation. Real Cordis and the real V4 runtime gate are in verify-pack.
+  writeFileSync(join(work.dir, 'host-contract.d.ts'),
+    `declare module '@deepseek-ai/dsh-llm' { export interface MessageSourceMap { user: { kind: 'user' } } }\n`)
+  writeFileSync(join(work.dir, 'consumer.mts'), readFileSync(join(work.dir, 'consumer.mts'), 'utf8') + [
+    `import type { MessageSourceMap } from '@deepseek-ai/dsh-llm';`,
+    `const registeredSource: MessageSourceMap['ponytail'] = source;`,
+    `const userSource: MessageSourceMap['user'] = { kind: 'user' };`,
+    `void registeredSource; void userSource;`,
+    '',
+  ].join('\n'))
   runNode(tscEntry, ['-p', join(work.dir, 'tsconfig.json')], work.dir)
   console.log(`test-consumer: OK\n(NodeNext, skipLibCheck:false, packed tarball of ${pkg.name}@${pkg.version})`)
 } finally {

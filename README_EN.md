@@ -23,8 +23,8 @@ not guarantees)”).
 
 - **Latest release**:
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **Pinned version v0.4.1** (immutable per tag):
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.1/mengyuly-dsh-ponytail.tgz`
+- **Pinned version v0.4.2** (immutable per tag):
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.2/mengyuly-dsh-ponytail.tgz`
 
 Notes:
 
@@ -33,7 +33,7 @@ Notes:
   the URL never breaks on a version bump — which also means it is **not
   suitable as an immutable dependency**.
 - **Pinned version**: good for reproducible installs; the URL pins a tag
-  (e.g. `v0.4.1`) that is immutable per tag; the asset name is likewise
+  (e.g. `v0.4.2`) that is immutable per tag; the asset name is likewise
   `mengyuly-dsh-ponytail.tgz`.
 - npm installs still go through the npm Registry or the `dsh plugin` command.
 - The fixed asset name is produced and verified by
@@ -45,7 +45,7 @@ Notes:
 Install into a profile (replace `web` with `tui` or a custom name):
 
 Recommended stable npm install: `dsh plugin --profile web add @mengyuly/dsh-ponytail`.
-To pin this release: `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.1`.
+To pin this release: `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.2`.
 
 ```bash
 # Option 1: local link (current dsh cores >= 0.1.x)
@@ -288,18 +288,41 @@ benchmark provides directional evidence only (see
   point.
 - User `config.json` hot-reloads; `PONYTAIL_DEFAULT_MODE` and profile config
   need a restart.
+- Session overrides are in-memory only. After restart, the agent follows the
+  saved default rather than restoring its previous session override.
 - The shipped `lib/` is prebuilt; build downstream changes in this repository
   and verify installed/source parity.
+
+## V4 session compatibility and recovery
+
+0.4.2 fixes [issue #3](https://github.com/MengYuil/dsh-ponytail/issues/3): mode,
+default, reset and text-deactivation notices use the producer-owned
+`kind: 'ponytail'`, not the retired `kind: 'plugin'` rejected by V4.
+Rules, mode precedence and explicit skill attribution are unchanged; notices
+still do not wake the model.
+
+The real **DSH 0.2.0-rc.2 / Cordis 4.0.4 / Schemastery 3.18.4** core was tested
+for V4 durable writes, normal restart, SIGKILL after flush, exact-prefix recovery,
+continued writes and projection checkpoints. One complete local run retained
+189 events across 12 turns. The model boundary uses an offline fixed-response
+adapter: no paid calls, no model-effectiveness claim, and no newer Web settings
+acceptance claim. See [scope and reproduction](https://github.com/MengYuil/dsh-ponytail/blob/master/docs/v4-persistence.md).
+
+If an older version has already blocked saves, back up visible unsaved content
+before upgrading and restarting the host. This fix prevents new retired-source
+events; it does not clean a poisoned in-memory buffer or guarantee recovery of
+unflushed content.
 
 ## Compatibility matrix (measured, not fabricated)
 
 | Component | Verified environment | Notes |
 |---|---|---|
-| Node.js | 22.x / 24.x | CI matrix, 4 combinations green |
+| Node.js | 22.x / 24.x | basic CI matrix; V4 persistence integration uses Linux Node 24 |
 | OS | ubuntu-24.04 / windows-latest | CI matrix |
-| DSH | commit `b150a551` (build checkout) | exact mapping to an official release **TBD** |
-| Cordis | 4.0.1 (build vendor) | same |
-| web profile | verified | isolated real WSL DSH: loading, save/restart persistence, priorities, skill switches and commands; npm/pnpm install checks |
+| Historical DSH host | checkout `b150a551` / CLI 0.1.1-rc.2 | historical build/Web checks, not every release |
+| DSH V4 core | npm 0.2.0-rc.2 | real Agent/commands/JSONL/checkpoints, normal and forced-termination recovery |
+| Cordis / Schemastery | 4.0.4 / 3.18.4 | V4 integration; historical inlined Cordis baseline is 4.0.1 |
+| web profile | verified on older host | loading, Settings save/restart, priorities, skill switches; newer 0.2.0-rc.2 Web not retested |
 | tui profile | not verified | not started inside a tui profile |
 | headless profile | not verified | not fully started; plugin unit tests run in a UI-less environment |
 | npm tarball | verified | contents/version/post-install smoke/NodeNext consumer |
@@ -315,6 +338,9 @@ benchmark provides directional evidence only (see
   Windows Node 24 and CI (**ubuntu-24.04 + windows-latest × Node 22/24**).
   Host checkout `b150a551` is not an official release tag; this does not
   establish compatibility with every published DSH version.
+- V4 persistence separately uses npm DSH 0.2.0-rc.2 core services and isolated
+  directories. Default persistence covers legacy `config.json`, not a retest
+  of newer Web native Settings or skill switches.
 - The historical host build baseline is `packages/community/ponytail` in the
   deepseek-harness monorepo. Current `@mengyuly/dsh-ponytail` downstream changes
   are maintained in this repository's `src/`, alongside shipped artifacts.
@@ -338,6 +364,7 @@ benchmark provides directional evidence only (see
   node scripts/check-bundle.mjs        # bundle external-dependency allowlist + no new Function/eval
   node scripts/verify-dist.mjs         # static consistency: src/d.ts export parity, key signatures, runtime exports, provenance
   node scripts/verify-pack.mjs         # tarball boundary (incl. no scripts/ exposure regression), versions, post-install smoke
+  node scripts/test-persistence.mjs    # Linux/WSL: real DSH V4 writes/restart/SIGKILL recovery/cache; offline model
   node scripts/test-consumer.mjs       # NodeNext + skipLibCheck:false declaration consumer test (against the packed artifact)
   node scripts/test-regressions.mjs    # regression tests for the verification tooling itself
   node scripts/test-core.mjs           # core prompt bytes, safety boundaries, modes and skill surface
@@ -356,7 +383,9 @@ benchmark provides directional evidence only (see
   exist in that checkout and a full rebuild is intended**, not as the routine
   downstream build command.
 - **CI capability boundary (honest)**: CI runs static checks, downstream
-  source/artifact hashes and pack/consumer tests; it **does not rebuild the
+  source/artifact hashes, pack/consumer tests and real V4 message admission.
+  A separate Linux job runs real DSH persistence/recovery and retains evidence.
+  CI **does not rebuild the
   host monorepo**. These checks establish neither full-rebuild equivalence
   with the host baseline nor model compliance or efficiency gains.
 - `dist-provenance.json` ships with the npm package for build-source audits.
