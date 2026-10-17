@@ -11,16 +11,16 @@
   "downstreamBuild": {
     "method": "scripts/build-ui.mjs; retains baseline inlined host dependencies",
     "node": "v24.15.0",
-    "typescript": "6.0.3",
+    "typescript": "5.9.3",
     "esbuild": "0.28.2",
     "sha256": {
-      "src/index.ts": "e762cdd47f3bfe2ed457564b0f7df0715488ed9fafdee3da6a8e288de2a6abe9",
-      "src/client.ts": "faca913a8b0348e89f67853a1e07bd4eefa0236b491f957c71fea3a914c51271",
+      "src/index.ts": "862016d9e264d90e60dfff4dc30850792d96599b17621d63bdf67fd5abab6cd7",
+      "src/client.ts": "e5d8cec0f083a65dfe954cba5e8de55fbaa3da5f4b23810101a16cd27ec3b9a5",
       "src/content.ts": "e9f6de036af5233a5ca6ab258be5ba821f8e072065fa43b0c700d2fac42a3095",
       "src/instructions.ts": "d96deb078f6f633fffb0e3da2750eb9d3afb37bce4cea11145db045c8cceb935",
       "src/modes.ts": "74b8b885d145759ce17007a054ab6adc295f726f47518f56a3d37de67bd14231",
-      "lib/index.js": "bcfa7176be907d219e530b63b31558a08dbc0aa0ab41ab03188befc6fcb1578a",
-      "lib/client.js": "3a57ec216b96944b404d42fc303e3b7681e9c7b0a909bb25cda98820038aba9c"
+      "lib/index.js": "de272cdcf3b0e38fcd02879c223ebdca759210fa00ded6e03b1d4292f56026b0",
+      "lib/client.js": "0f542c4bc85cf2aaf1cc76f0c378e7937b05d25d661afbe3cb5a0818df3b93c2"
     }
   }
 }

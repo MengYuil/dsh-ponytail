@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm'
 
 const require = createRequire(resolve(process.env.PONYTAIL_TOOL_ROOT ?? '.', 'package.json'))
 const React = require('react')
+const { Context } = require('@deepseek-ai/cordis')
 const { JSDOM } = require('jsdom')
 const dom = new JSDOM('<!doctype html><div id="root"></div>')
 globalThis.window = dom.window
@@ -108,7 +109,10 @@ const ctx = {
   remote: { commands: { async execute(sessionId, line, attachments) {
     commands.push({ sessionId, line, attachments: Array.from(attachments) }); return { ok: true, value: {} }
   } } },
-  inject(_names, factory) { factory(ctx) },
+  inject(names, factory) {
+    const required = Array.isArray(names) ? names : Object.keys(names)
+    if (required.every(name => name in ctx)) factory(ctx)
+  },
 }
 client.apply(ctx)
 assert.equal(renderedCard, client.SettingsCard, 'the shipped UI must register the actual settings component')
@@ -125,6 +129,75 @@ await registeredScope.mutate([{ op: 'unset', path: ['defaultMode'] }], 42)
 assert.deepEqual(olderCalls, [{ ns: 'ponytail', ops: [{ op: 'unset', path: ['defaultMode'] }], expectedRevision: 42 }], 'older hosts must use one atomic fenced RPC')
 ctx.connection.api.settings.mutate = async () => ({ result: { ok: false, error: { message: 'older host write rejected' } } })
 await assert.rejects(registeredScope.mutate([], 42), /older host write rejected/, 'older host rejection must not become save success')
+// Modern desktop/Web hosts expose configForms, not settingsScope/connection.
+const modernRows = []
+let modernRefused = false
+const modernForm = {
+  getSnapshot: scope.getSnapshot,
+  subscribe: scope.subscribe,
+  async mutate(ops, revision) {
+    if (modernRefused) return false
+    await scope.mutate(ops, revision)
+    return true
+  },
+}
+const modernCtx = {
+  effect: ctx.effect,
+  locale: ctx.locale,
+  configForms: { get(ns) { assert.equal(ns, 'ponytail'); return modernForm } },
+  slots: {
+    inject(name, register) { if (name === 'settings.plugins.tab') return register(); return () => {} },
+    register(row, component) { modernRows.push({ row, component }); return () => {} },
+  },
+  inject(names, install) {
+    // Cordis inject maps configure interception; every named service is required.
+    const required = Array.isArray(names) ? names : Object.keys(names)
+    if (required.every(name => name in modernCtx)) install(modernCtx)
+  },
+}
+client.apply(modernCtx)
+assert.equal(modernRows.length, 1, 'modern host must get exactly one visible Ponytail tab without legacy services')
+// Regression: real Cordis, not a permissive inject mock. Neither generation
+// may depend on the other settings API or on optional command-menu services.
+for (const modern of [false, true]) {
+  const real = new Context()
+  const rows = []
+  const slot = modern ? 'settings.plugins.tab' : 'settings.plugin.item'
+  real.provide('locale', ctx.locale)
+  real.provide('slots', {
+    inject(name, register) { if (name === slot) return register(); return () => {} },
+    register(row, component) { rows.push({ row, component }); return () => {} },
+  })
+  if (modern) real.provide('configForms', modernCtx.configForms)
+  else real.provide('settingsScope', { bind: () => scope })
+  const fiber = real.plugin(client)
+  try {
+    await fiber
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(rows.length, 1, `${modern ? 'modern' : 'legacy'} real Cordis must mount the panel without the other generation`)
+    assert.equal(rows[0].component, client.SettingsCard)
+  } finally {
+    await fiber.dispose()
+  }
+}
+assert.equal(modernRows[0].row.id, 'ponytail')
+const modernProps = modernRows[0].row.inject()
+assert.equal(modernRows[0].component, client.SettingsCard)
+snapshot = { ...snapshot, writable: true }
+await act(async () => root.render(React.createElement(modernRows[0].component,
+  { ...modernProps, key: 'modern', t: key => key })))
+await select('full')
+await click(button('save'))
+assert.equal(snapshot.value.defaultMode, 'full')
+modernRefused = true
+await select('ultra')
+await click(button('save'))
+assert.equal(snapshot.value.defaultMode, 'full', 'false ConfigForm acceptance must not change saved settings')
+assert.equal(document.querySelector('select').value, 'ultra', 'modern refusal must preserve the draft')
+assert.ok(document.querySelector('[role="alert"]'), 'modern refusal must surface as an error, not saved')
+modernRefused = false
+await click(button('reset'))
+assert.equal(snapshot.value.defaultMode, 'inherit')
 for (const language of ['zh', 'en']) {
   const dict = dictionaries[language]
   await act(async () => { root.render(React.createElement(client.SettingsCard, { scope, t: key => dict[key] })) })

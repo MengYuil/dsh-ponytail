@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [0.4.3] - 2026-10-17
+
+### Fixed
+
+- Restore graphical settings on modern DSH Web and Desktop: separate legacy
+  Settings scopes from modern ConfigForms dependencies instead of treating
+  Cordis intercept options as optional-service declarations.
+- Publish volatile profile settings for modern hosts, read live mode changes,
+  preserve session overrides, and reject unsuccessful form saves without
+  discarding drafts. Optional-skill settings cannot disable the core pointer.
+- Refresh the effective default after a volatile profile reset instead of
+  retaining the former profile mode in the legacy-file cache.
+
+### Added
+
+- Real Cordis UI activation regression for both API generations, and a
+  published-host browser matrix covering 0.1.1, 0.1.2, 0.1.5, 0.1.7, 0.2.0 and 0.2.1
+  release candidates: panel visibility, saves, actual host restart and reset.
+
 ## [0.4.2] - 2026-10-13
 
 ### Fixed

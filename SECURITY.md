@@ -23,6 +23,13 @@ user processes or uses user profiles/credentials; only an offline fixed-response
 model adapter is registered. This integration tooling is also excluded from
 the npm tarball and all runtime/install entry points.
 
+`scripts/test-host-ui.mjs` installs an explicitly selected published DSH into
+a temporary test runtime and drives a real browser against an isolated local
+Profile. It starts/stops only its own child host, skips onboarding without
+entering credentials, and sends no model requests. Host tokens are redacted
+from retained diagnostics. This maintainer-only runner is excluded from the
+npm package and never runs during plugin installation.
+
 They execute only when a maintainer explicitly runs the corresponding
 repository-maintainer command (`node scripts/...`, see `package.dev.json`).
 This is an intentional capability of local build tooling, not part of

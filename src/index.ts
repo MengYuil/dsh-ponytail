@@ -57,13 +57,26 @@ declare module '@deepseek-ai/dsh-llm' {
  * `config` in a profile patch). `defaultMode` sits between the environment
  * variable and the user config file in the default-resolution chain.
  *
- * No `Config` schema is exported on purpose: cordis passes the raw config
- * through unvalidated then, so an invalid `defaultMode` falls back with a
- * one-time warning instead of failing the plugin mount.
+ * Live fields support schema-derived desktop/Web configuration forms.
+ * `defaultMode` remains permissive so invalid legacy values still warn and
+ * fall back rather than preventing the plugin from mounting.
  */
 export interface PonytailConfig {
   /** Profile-scoped default intensity, e.g. `web → full`, `tui → lite`. */
   defaultMode?: unknown
+  /** Profile-backed optional-skill toggles; never disable the core rules. */
+  disabledSkills?: unknown
+}
+
+export const Config: z<PonytailConfig> = z.object({
+  defaultMode: z.any().default('inherit').volatile(),
+  disabledSkills: z.array(z.string()).default([]).volatile(),
+})
+
+/** Read the cross-copy volatile reference protocol, or a legacy plain value. */
+function configValue(value: unknown): unknown {
+  return typeof value === 'object' && value !== null && Symbol.for('cosmokit.volatile.write') in value
+    ? (value as { get(): unknown }).get() : value
 }
 
 /** Prompt-section order: after the deployment persona (0), before tool guidance (100–199). */
@@ -92,7 +105,7 @@ interface CommandDeps {
   readonly ctx: Context
   readonly store: ModeStore
   /** Validated Cordis profile `defaultMode`, or `null`. */
-  readonly profileMode: PonytailRuntimeMode | null
+  readonly profileMode: () => PonytailRuntimeMode | null
   readonly defaultMode: () => PonytailRuntimeMode
   readonly setDefault: (mode: PonytailRuntimeMode) => void
   readonly defaultSource: () => string
@@ -105,6 +118,7 @@ interface Preferences {
 }
 
 interface PreferencesScope {
+  readonly profileBacked?: boolean
   get(): Preferences
   watch(listener: () => void): () => void
   update(patch: Partial<Preferences>): Promise<void>
@@ -169,7 +183,7 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
           if (!target || rest.length !== 1) return { kind: 'error', text: 'Usage: /ponytail default [lite|full|ultra|off]' }
           return settings.update({ defaultMode: target }).then(() => {
             const effective = deps.defaultMode()
-            const reason = defaultOverrideReason(process.env, deps.profileMode)
+            const reason = defaultOverrideReason(process.env, settings.profileBacked ? null : deps.profileMode())
             const notice = reason
               ? `PONYTAIL DEFAULT SET — saved ${target}, effective ${effective} (${reason}).`
               : `PONYTAIL DEFAULT SET — new sessions start in ${target}.`
@@ -188,13 +202,13 @@ function registerCommands(deps: CommandDeps, commandCtx: Context): void {
         if (!written) {
           return { kind: 'error', text: 'Usage: /ponytail default [lite|full|ultra|off]' }
         }
-        const effective = readDefaultMode(process.env, deps.profileMode)
+        const effective = readDefaultMode(process.env, deps.profileMode())
         deps.setDefault(effective)
         // Name the overriding source whenever one exists — even when the saved
         // value happens to coincide with it (env=full + `/ponytail default full`
         // must still tell the user the env var is what new sessions actually
         // follow, so a later env change does not surprise them).
-        const reason = defaultOverrideReason(process.env, deps.profileMode)
+        const reason = defaultOverrideReason(process.env, deps.profileMode())
         if (reason !== null) {
           agent.inject(createUserMessage({
             content: [{ type: 'text', text: `PONYTAIL DEFAULT SET — saved ${written}, effective ${effective} (${reason}).` }],
@@ -307,13 +321,10 @@ function descriptionFor(skill: string): string {
  */
 export function apply(ctx: Context, config: PonytailConfig = {}): void {
   let preferences: PreferencesScope | undefined
-  // Cordis profile-level default (set per profile via the bundle row's
-  // `config`). Read once at mount: cordis exposes no stable public config-
-  // change event (only the internal update waterfall), so profile changes
-  // apply on the next profile start — the user config file keeps its
-  // hot-reload behavior.
-  const profileMode = normalizeRuntimeMode(config.defaultMode)
-  if (config.defaultMode !== undefined && profileMode === null) {
+  // Modern Loader supplies live volatile references. Older hosts pass plain
+  // profile values, which remain fixed until that profile is restarted.
+  const profileMode = (): PonytailRuntimeMode | null => normalizeRuntimeMode(configValue(config.defaultMode))
+  if (configValue(config.defaultMode) !== undefined && configValue(config.defaultMode) !== 'inherit' && profileMode() === null) {
     ctx.logger.warn(`[ponytail] profile config defaultMode is not lite|full|ultra|off: ${JSON.stringify(config.defaultMode)}; falling back`)
   }
 
@@ -334,7 +345,7 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
     ctx.logger.warn(`[ponytail] ${message}`)
   }
   const refreshDefault = (): PonytailRuntimeMode => {
-    const resolution = readDefaultModeInfo(process.env, profileMode)
+    const resolution = readDefaultModeInfo(process.env, profileMode())
     if (resolution.issue) {
       warnOnce(`default:${resolution.issue.kind}`, `${resolution.issue.detail}; using ${resolution.mode}`)
     }
@@ -343,10 +354,10 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
     return defaultMode
   }
   const readDefault = (): PonytailRuntimeMode =>
-    normalizeRuntimeMode(process.env.PONYTAIL_DEFAULT_MODE) ?? profileMode
+    normalizeRuntimeMode(process.env.PONYTAIL_DEFAULT_MODE) ?? profileMode()
     ?? normalizeRuntimeMode(preferences?.get().defaultMode) ?? defaultMode ?? refreshDefault()
   const defaultSource = (): string => {
-    const priority = defaultOverrideReason(process.env, profileMode)
+    const priority = defaultOverrideReason(process.env, profileMode())
     if (priority) return priority
     if (normalizeRuntimeMode(preferences?.get().defaultMode)) return 'DSH settings'
     if (defaultMode === null) refreshDefault()
@@ -371,7 +382,7 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
   // once the process starts.
   const configFile = configPath()
   const onConfigChange = (): void => {
-    const resolution = readDefaultModeInfo(process.env, profileMode)
+    const resolution = readDefaultModeInfo(process.env, profileMode())
     if (resolution.issue) {
       warnOnce(`config:${resolution.issue.kind}`, `${resolution.issue.detail}; keeping the previous default`)
       return
@@ -408,7 +419,9 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
   // the always-on ruleset or the persona pointer.
   const registered = new Map<string, () => void>()
   const refreshSkills = (): void => {
-    const disabled = new Set(preferences?.get().disabledSkills ?? [])
+    const rawDisabled = configValue(config.disabledSkills)
+    const disabled = new Set([...(Array.isArray(rawDisabled) ? rawDisabled : []), ...(preferences?.get().disabledSkills ?? [])]
+      .filter(skill => OPTIONAL_SKILLS.includes(skill)))
     for (const skill of ponytailSkills()) {
       if (disabled.has(skill.name) && registered.has(skill.name)) {
         registered.get(skill.name)?.()
@@ -419,14 +432,27 @@ export function apply(ctx: Context, config: PonytailConfig = {}): void {
     }
   }
   refreshSkills()
+  // Loader commits volatile references before this event: update skills live
+  // without remounting Ponytail and losing its session overrides.
+  ctx.on('loader/volatile-update', () => { onConfigChange(); refreshSkills() })
   // Optional host settings: headless/older deployments keep their existing
   // file and command paths without acquiring a new required service.
   ctx.inject(['settings'], settingsCtx => {
-    const settings = (settingsCtx as unknown as { settings?: {
-      register(name: string, schema: unknown, options: { applies: string }): PreferencesScope
-    } }).settings
-    if (!settings || typeof settings.register !== 'function') return
-    preferences = settings.register('ponytail', PreferencesSchema, { applies: 'live' })
+    const settings = (settingsCtx as any).settings
+    if (!settings) return
+    if (typeof settings.register === 'function') {
+      preferences = settings.register('ponytail', PreferencesSchema, { applies: 'live' })
+    } else if (typeof settings.update === 'function' && typeof settings.configure === 'function') {
+      const ns = (ctx.fiber as any).entry?.options?.id ?? name
+      preferences = {
+        profileBacked: true,
+        get: () => ({ defaultMode: profileMode() ?? 'inherit',
+          disabledSkills: Array.isArray(configValue(config.disabledSkills)) ? configValue(config.disabledSkills) as string[] : [] }),
+        watch: () => () => {}, // volatile-update above owns live refreshes
+        update: patch => settings.update(ns, patch),
+      }
+      settingsCtx.effect(() => settings.configure({ auto: false }, ctx.fiber), 'ponytail: custom settings page')
+    } else return
     refreshSkills()
     const scope = preferences
     settingsCtx.effect(() => scope.watch(refreshSkills), 'ponytail: live skill preferences')

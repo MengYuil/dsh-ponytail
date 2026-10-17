@@ -5,6 +5,7 @@
     "sync:dist": "node scripts/sync-dist.mjs",
     "build:ui": "node scripts/build-ui.mjs",
     "test:ui": "node scripts/test-ui.mjs",
+    "test:host-ui": "node scripts/test-host-ui.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:pack": "node scripts/verify-pack.mjs",
     "test:consumer": "node scripts/test-consumer.mjs",

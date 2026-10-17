@@ -15,15 +15,15 @@
 
 - **最新版（latest）**：
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **固定版本 v0.4.2**（按 Tag 不可变）：
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.2/mengyuly-dsh-ponytail.tgz`
+- **固定版本 v0.4.3**（按 Tag 不可变）：
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.3/mengyuly-dsh-ponytail.tgz`
 
 说明：
 
 - **latest**：适合快速安装体验，会随最新 Release 更新；固定资产名
   `mengyuly-dsh-ponytail.tgz` 在每个 Release 中保持不变，因此该 URL
   不会因版本号变化而失效，**不适合作为不可变依赖**。
-- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.4.2`），按 Tag
+- **固定版本**：适合可复现安装，URL 中固定 Tag（如 `v0.4.3`），按 Tag
   不可变；资产名同样为 `mengyuly-dsh-ponytail.tgz`。
 - npm 安装仍走 npm Registry 或 `dsh plugin` 命令。
 - 固定资产名由 `scripts/release-assets.mjs` 生成并验证（`node scripts/release-assets.mjs`，仅仓库维护者）。
@@ -33,7 +33,7 @@
 装进某个 profile（`web` 可换成 `tui`/自定义名）：
 
 推荐从 npm 安装稳定版：`dsh plugin --profile web add @mengyuly/dsh-ponytail`。
-需要固定本版时使用 `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.2`。
+需要固定本版时使用 `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.3`。
 
 ```bash
 # 方式一：本地链接（当前 dsh 核 ≥ 0.1.x）
@@ -106,16 +106,22 @@ dsh plugin --profile web update @mengyuly/dsh-ponytail
           config:
             defaultMode: lite
     ```
-    例：`web → full`、`tui → lite`、`automation → off`。Profile 配置在插件初始化时读取（Cordis 无公开配置变更事件），**改后需重启该 profile**；非法值只告警一次并回退，不影响启动。用户 `config.json` 仍保持热更新。
+    例：`web → full`、`tui → lite`、`automation → off`。支持 volatile 配置的新版宿主可热更新本插件设置；其他宿主手动改 Profile 后需重启。非法值只告警一次并回退，不影响启动。用户 `config.json` 仍保持热更新。
   - **用户 config.json**（`~/.config/ponytail/config.json`，Windows `%APPDATA%\ponytail\config.json`）：`{"defaultMode": "lite"}`，热更新（~1s 轮询），非法内容保留上次合法值。
 - **子代理（如实边界）**：DSH 内置 `subagent` 工具是**隔离派生**，但全局 system-prompt section 默认也会参与子代理的独立组装；这不是父代理 Prompt 或会话状态继承。`PONYTAIL_SUBAGENT_MATCHER`（匹配子代理 `agentPreset` 的正则）只用于筛选能进入本 Prompt 管线的子代理，不是继承开关；无 preset 时不会被 matcher 排除。DSH 当前没有公开的父子 Prompt 继承 API，因此**不宣称父子 Prompt 继承**（有官方 API 后再考虑只读模式快照传播）。非法正则告警一次并 fail-open。
 - **配置错误**：非法 JSON / 非法 `defaultMode` / 读取失败 / 非法正则只告警一次（不刷屏）；配置文件不存在属正常、不告警。
 
 ## 图形操作
 
-支持原生 `settingsScope`/`settings.plugin.item` 接口的 DSH Web 中，打开
-**设置 → 插件 → Ponytail**：选择默认模式、分别开关五个附加技能、保存设置，
-或一键恢复面板默认。选择「跟随现有配置」会沿用旧配置，不替用户覆盖环境变量或 Profile。
+**0.4.3** 加入新版 Web/桌面面板兼容修复；旧的 npm 0.4.2 不包含本次面板修复。
+按实际宿主接口自动选择注册路径，不只针对某个 checkout：
+
+- 旧版 `settingsScope`/`settings.plugin.item`：设置 → 插件/内置插件 → 插件配置 → Ponytail。
+- 新版 `configForms`/`settings.plugins.tab`（Web 和桌面版）：设置 → 内置插件 → Ponytail。
+
+面板可选择默认模式、分别开关五个附加技能、保存设置，或恢复面板默认。
+新版保存到当前 Profile；旧版保存到宿主 Settings 文档。
+「跟随现有配置」不覆盖环境变量；旧版面板也不覆盖已有 Profile 模式。
 面板默认值不是当前会话模式；已有会话覆盖不变，实际模式与来源用 `/ponytail status` 查询。
 附加技能开关不会移除常驻核心规则，只有 `off` 模式关闭规则注入。
 
@@ -125,6 +131,10 @@ dsh plugin --profile web update @mengyuly/dsh-ponytail
 不删除旧配置、不清除已有会话覆盖，也不请求模型工作。
 
 已在 WSL Debian 的真实 DSH checkout `b150a551` 上用隔离 profile 联调界面与文件设置。
+本轮还对 npm DSH **0.1.1-rc.2、0.1.2-rc.1、0.1.5-rc.3、0.1.7-rc.2、0.2.0-rc.2、0.2.1-rc.2**
+运行真实浏览器验证：面板加载、模式/技能保存、宿主重启保留和恢复默认；Windows 桌面版
+**0.2.0-rc.2** 也已实测。不代表所有 alpha、未来版本或自定义裁剪宿主均已验证。
+完整检查项及构建标识见 [图形设置兼容记录](docs/ui-compatibility.md)。
 旧版仅有 `set/unset` 的 Settings scope 通过宿主原子 RPC 保存，仍保留版本冲突检查。
 DSH 宿主契约 peer 保留版本声明，但标记为包管理器可选，由实际宿主提供；
 `cordis` 与 `schemastery` 仍是必需的运行时 peer。正常安装不需要关闭自动 peer 安装，
@@ -134,12 +144,23 @@ DSH 宿主契约 peer 保留版本声明，但标记为包管理器可选，由�
 开发者界面验证（工具安装在仓库外，不进入 npm 包）：
 ```powershell
 $env:PONYTAIL_TOOL_ROOT = Join-Path $env:TEMP 'ponytail-ui-tools'
-npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0 @deepseek-ai/cordis@4.0.4
 node scripts/build-ui.mjs
 node scripts/test-ui.mjs
 ```
 `build-ui` 保留已有内联宿主依赖，编译下游规则片段、插件入口和浏览器界面，**不是权威 monorepo 完整重建**。
 `dist-provenance.json` 中旧 `sourceCommit` 表示基线，`downstreamBuild` 记录当前修改的源码和产物 SHA-256。
+
+真实宿主跨版本检查（CI 分别运行上表六个版本，不调用模型）：
+```powershell
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts playwright@1.64.0
+node (Join-Path $env:PONYTAIL_TOOL_ROOT 'node_modules/playwright/cli.js') install chromium
+node scripts/test-host-ui.mjs 0.2.1-rc.2
+```
+脚本为指定版本创建临时宿主与 Profile，使用真实 npm tarball，不读取日常配置或凭证。
+0.1.1-rc.2 测试固定同代 Cordis 依赖，避免旧宿主的宽松 peer 范围混装新版；
+这只是历史宿主测试环境配置，不改变插件的正常安装方式。
+设置 `PONYTAIL_VERIFY_KEEP_TEMP=1` 可保留截图与检查结果；`PONYTAIL_DSH_RUNTIME` 可复用指定版本的测试运行时。
 
 ## 效率（条件性收益，非保证）
 
@@ -212,7 +233,8 @@ V4 落盘、正常重启恢复、flush 后强制终止恢复、后续写入与�
 | DSH 历史宿主 | checkout `b150a551` / CLI 0.1.1-rc.2 | 历史构建与 Web 联调，不代表所有发行版 |
 | DSH V4 核心 | npm 0.2.0-rc.2 | 真实 Agent/命令/JSONL/投影缓存，正常与强制终止后恢复 |
 | Cordis / Schemastery | 4.0.4 / 3.18.4 | V4 实测；历史内联基线 Cordis 4.0.1 |
-| web profile | 旧宿主已验证 | 加载、Settings 保存/重启、优先级、技能开关；新版 0.2.0-rc.2 Web 未复测 |
+| Web 面板（0.4.3） | 0.1.1-rc.2 / 0.1.2-rc.1 / 0.1.5-rc.3 / 0.1.7-rc.2 / 0.2.0-rc.2 / 0.2.1-rc.2 | 真实浏览器、保存、宿主重启保留、恢复默认；CI 逐版本检查 |
+| Windows 桌面面板（0.4.3） | 官方 0.2.0-rc.2 | 真实 Electron 界面、模式/技能保存、重启保留、恢复默认 |
 | tui profile | 未验证 | 未在 tui profile 中启动测试 |
 | headless profile | 未验证 | 未完整启动；插件单元测试运行于无 UI 环境 |
 | npm tarball | 已验证 | 内容/版本/安装后 smoke/NodeNext consumer |

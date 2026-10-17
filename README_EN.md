@@ -23,8 +23,8 @@ not guarantees)”).
 
 - **Latest release**:
   `https://github.com/MengYuil/dsh-ponytail/releases/latest/download/mengyuly-dsh-ponytail.tgz`
-- **Pinned version v0.4.2** (immutable per tag):
-  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.2/mengyuly-dsh-ponytail.tgz`
+- **Pinned version v0.4.3** (immutable per tag):
+  `https://github.com/MengYuil/dsh-ponytail/releases/download/v0.4.3/mengyuly-dsh-ponytail.tgz`
 
 Notes:
 
@@ -33,7 +33,7 @@ Notes:
   the URL never breaks on a version bump — which also means it is **not
   suitable as an immutable dependency**.
 - **Pinned version**: good for reproducible installs; the URL pins a tag
-  (e.g. `v0.4.2`) that is immutable per tag; the asset name is likewise
+  (e.g. `v0.4.3`) that is immutable per tag; the asset name is likewise
   `mengyuly-dsh-ponytail.tgz`.
 - npm installs still go through the npm Registry or the `dsh plugin` command.
 - The fixed asset name is produced and verified by
@@ -45,7 +45,7 @@ Notes:
 Install into a profile (replace `web` with `tui` or a custom name):
 
 Recommended stable npm install: `dsh plugin --profile web add @mengyuly/dsh-ponytail`.
-To pin this release: `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.2`.
+To pin this release: `dsh plugin --profile web add @mengyuly/dsh-ponytail@0.4.3`.
 
 ```bash
 # Option 1: local link (current dsh cores >= 0.1.x)
@@ -169,9 +169,9 @@ that the installation source changes.
           config:
             defaultMode: lite
     ```
-    Example: `web → full`, `tui → lite`, `automation → off`. Profile config is
-    read when the plugin initializes (Cordis has no public config-change
-    event), so **restart that profile after changing it**; an invalid value
+    Example: `web → full`, `tui → lite`, `automation → off`. Modern hosts with
+    volatile configuration apply this plugin's settings live; other hosts need
+    a profile restart after manual configuration edits. An invalid value
     warns once and falls back without breaking startup. The user `config.json`
     stays hot-reloaded.
   - **User config.json** (`~/.config/ponytail/config.json`, Windows
@@ -193,10 +193,16 @@ that the installation source changes.
 
 ## Graphical controls
 
-On DSH Web hosts with the native `settingsScope`/`settings.plugin.item` APIs,
-open **Settings → Plugins → Ponytail** to select a default mode, toggle five
-optional skills, save, or reset panel defaults. “Follow existing configuration”
-preserves legacy configuration. Environment/profile values still take priority;
+**0.4.3** adds modern Web/Desktop panel compatibility; npm 0.4.2 does not
+contain this panel repair. Registration follows the available host API:
+
+- Legacy `settingsScope`/`settings.plugin.item`: Settings → Plugins / Built-in plugins → Plugin configuration → Ponytail.
+- Modern `configForms`/`settings.plugins.tab`, Web and Desktop: Settings → Built-in plugins → Ponytail.
+
+Select a default mode, toggle five optional skills, save, or reset panel
+defaults. Modern forms save to the current Profile; legacy scopes save to the
+host Settings document. Environment values still take priority; legacy panel
+preferences also remain below explicit profile modes.
 existing session overrides stay intact. Use `/ponytail status` for the actual
 session mode and source. Optional-skill toggles never remove the core rules.
 
@@ -209,6 +215,12 @@ overrides, not legacy files or session state, and requests no model work.
 The native UI and file-backed settings were integration-tested in an isolated
 profile on the real WSL Debian DSH checkout `b150a551`. Older Settings scopes
 with only `set/unset` save through the host's atomic RPC with revision checks.
+The current repair also passed real-browser tests on published DSH
+**0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.3, 0.1.7-rc.2, 0.2.0-rc.2 and 0.2.1-rc.2**:
+panel loading, mode/skill saves, real host restart persistence and reset.
+Official Windows Desktop **0.2.0-rc.2** passed native Electron UI checks too.
+This is not a claim that every alpha, future release or custom host was tested.
+See the [UI compatibility record](docs/ui-compatibility.md) for checks and build identification.
 DSH contract peers retain their version ranges but are optional for package
 resolution and supplied by the host. Cordis and schemastery remain required
 runtime peers. Normal installation needs no auto-peer workaround and does not
@@ -219,7 +231,7 @@ skills, and the other services used by the plugin.
 Developer UI checks use isolated tools, excluded from the npm tarball:
 ```powershell
 $env:PONYTAIL_TOOL_ROOT = Join-Path $env:TEMP 'ponytail-ui-tools'
-npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts typescript@6.0.3 esbuild@0.28.2 react@18.3.1 react-dom@18.3.1 jsdom@26.1.0 @deepseek-ai/cordis@4.0.4
 node scripts/build-ui.mjs
 node scripts/test-ui.mjs
 ```
@@ -227,6 +239,18 @@ node scripts/test-ui.mjs
 rule fragments and entry/UI code; it is **not an authoritative monorepo rebuild**. Provenance's
 `sourceCommit` identifies the baseline; `downstreamBuild` records current source
 and artifact hashes.
+
+Real-host browser compatibility checks (CI runs all six versions above; no model calls):
+```powershell
+npm install --prefix $env:PONYTAIL_TOOL_ROOT --ignore-scripts playwright@1.64.0
+node (Join-Path $env:PONYTAIL_TOOL_ROOT 'node_modules/playwright/cli.js') install chromium
+node scripts/test-host-ui.mjs 0.2.1-rc.2
+```
+The runner creates a temporary host/profile for the requested release and uses
+the actual npm tarball, never daily configuration or credentials. The historical
+0.1.1-rc.2 fixture pins its own Cordis family to avoid incompatible modern peers;
+this does not change normal plugin installation. Set `PONYTAIL_VERIFY_KEEP_TEMP=1`
+to retain screenshots/results, or `PONYTAIL_DSH_RUNTIME` to reuse a test runtime.
 
 ## Efficiency (conditional gains, not guarantees)
 
@@ -322,7 +346,8 @@ unflushed content.
 | Historical DSH host | checkout `b150a551` / CLI 0.1.1-rc.2 | historical build/Web checks, not every release |
 | DSH V4 core | npm 0.2.0-rc.2 | real Agent/commands/JSONL/checkpoints, normal and forced-termination recovery |
 | Cordis / Schemastery | 4.0.4 / 3.18.4 | V4 integration; historical inlined Cordis baseline is 4.0.1 |
-| web profile | verified on older host | loading, Settings save/restart, priorities, skill switches; newer 0.2.0-rc.2 Web not retested |
+| Web panel (0.4.3) | 0.1.1-rc.2 / 0.1.2-rc.1 / 0.1.5-rc.3 / 0.1.7-rc.2 / 0.2.0-rc.2 / 0.2.1-rc.2 | real browser, save, host restart persistence, reset; per-version CI |
+| Windows Desktop panel (0.4.3) | official 0.2.0-rc.2 | real Electron UI, mode/skill save, restart persistence, reset |
 | tui profile | not verified | not started inside a tui profile |
 | headless profile | not verified | not fully started; plugin unit tests run in a UI-less environment |
 | npm tarball | verified | contents/version/post-install smoke/NodeNext consumer |

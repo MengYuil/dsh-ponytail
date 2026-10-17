@@ -19,7 +19,7 @@
  * Exits non-zero on any failure. Temporary files are removed unless
  * `PONYTAIL_VERIFY_KEEP_TEMP=1` is set.
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync, watchFile, unwatchFile } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gunzipSync } from 'node:zlib'
@@ -122,6 +122,7 @@ try {
     && typeof mod.containsDeactivation === 'function' && typeof mod.messageText === 'function',
   'installed bundle does not expose the plugin shape')
   check(JSON.stringify(mod.inject) === JSON.stringify(['systemPrompt', 'skills']), 'installed bundle inject mismatch')
+  check(typeof mod.Config === 'function', 'modern host must discover the plugin Config schema')
   check(mod.containsDeactivation([{ content: [{ type: 'text', text: '停止 ponytail。' }] }]),
     'installed bundle does not recognize Chinese deactivation')
   check(!mod.containsDeactivation([{ content: [{ type: 'text', text: '请增加“停止 ponytail”按钮' }] }]),
@@ -274,6 +275,41 @@ try {
     mod.apply(legacyCtx, {})
     check(legacyCommands.get('ponytail')({ agent, rawInput: 'default full' }).kind === 'success',
       'legacy default without a profile override must succeed')
+    // Profile-backed forms must refresh the effective rules, not only the UI.
+    const liveEvents = new Map()
+    const liveSkills = new Map()
+    const liveCommands = new Map()
+    let livePrompt, liveMode = 'ultra', disabled = ['ponytail']
+    const volatile = get => ({ get, [Symbol.for('cosmokit.volatile.write')]: true })
+    mod.apply({ ...fakeCtx,
+      on(event, callback) { liveEvents.set(event, callback) },
+      systemPrompt: { section(section) { livePrompt = section } },
+      skills: { register(skill) { liveSkills.set(skill.name, skill); return () => liveSkills.delete(skill.name) } },
+      inject(deps, install) {
+        if (deps.includes('commands')) install({ commands: { register(command) { liveCommands.set(command.name, command.handler) } } })
+      },
+    }, { defaultMode: volatile(() => liveMode), disabledSkills: volatile(() => disabled) })
+    check(liveSkills.has('ponytail'), 'profile settings must never disable the core pointer')
+    const liveAgent = { id: 'live-profile-override', inject: admit }
+    liveCommands.get('ponytail')({ agent: liveAgent, rawInput: 'lite' })
+    // Wait for the real shared StatWatcher, not an assumed wall-clock delay.
+    const liveFile = join(work.dir, 'ponytail/config.json')
+    await new Promise((resolveChanged, reject) => {
+      const done = () => { clearTimeout(timer); unwatchFile(liveFile, changed) }
+      const changed = () => { done(); resolveChanged() }
+      const timer = setTimeout(() => { done(); reject(new Error('legacy config watcher did not observe the edit')) }, 5000)
+      watchFile(liveFile, { interval: 1000 }, changed)
+      writeFileSync(liveFile, JSON.stringify({ defaultMode: 'full' }))
+    })
+    liveMode = 'inherit'
+    disabled = ['ponytail-audit']
+    liveEvents.get('loader/volatile-update')()
+    check(livePrompt.text({ agent: settingsAgent }) === getPonytailInstructions('full'),
+      'resetting a volatile profile mode must not retain its cached former mode')
+    check(livePrompt.text({ agent: liveAgent }) === getPonytailInstructions('lite'),
+      'live profile edits must preserve explicit session overrides')
+    check(!liveSkills.has('ponytail-audit') && liveSkills.has('ponytail'),
+      'volatile skill edits must take effect without disabling core rules')
     for (const text of ['stop ponytail', '普通模式']) {
       const decision = await preStep({ agent, messages: [{ content: [{ type: 'text', text }] }] },
         async () => ({ kind: 'enter', messages: [] }))

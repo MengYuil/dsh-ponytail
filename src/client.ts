@@ -15,6 +15,8 @@ const zh = {
   modeSafety: '安全、输入校验、必要错误处理与最小检查始终保留。模式只改变精简策略，不降低质量要求。',
   full: 'Full · 七阶梯默认约束', ultra: 'Ultra · 更严格地避免过度实现', off: 'Off · 关闭规则注入',
   boundary: '环境变量和 Profile 配置优先于此设置；已有会话覆盖保持不变。当前会话请用 /ponytail status 查询。',
+  profileBoundary: '此面板保存到当前 Profile；环境变量仍优先，已有会话覆盖保持不变。当前会话请用 /ponytail status 查询。',
+  refused: '宿主未接受设置，请刷新后重试。',
   skills: '附加技能', save: '保存设置', saving: '正在保存…', saved: '设置已保存',
   modeHint: '保存后用于未单独切换模式的会话，不覆盖已有会话设置；Off 会关闭核心规则注入。',
   skillsHint: '仅控制附加技能是否可用，不影响 Ponytail 核心约束；勾选不会自动执行技能。',
@@ -45,6 +47,8 @@ const en = {
   modeSafety: 'Security, input validation, essential error handling, and minimal checks stay intact. Modes change simplification strategy, not quality requirements.',
   full: 'Full · Seven-rung default', ultra: 'Ultra · Stronger anti-overengineering', off: 'Off · Disable rule injection',
   boundary: 'Environment and profile settings take priority. Existing session overrides stay intact. Use /ponytail status for the actual session mode.',
+  profileBoundary: 'Saved to the current profile. Environment values still take priority; session overrides stay intact. Use /ponytail status for the actual mode.',
+  refused: 'The host did not accept these settings. Refresh and try again.',
   skills: 'Optional skills', save: 'Save settings', saving: 'Saving…', saved: 'Settings saved',
   modeHint: 'After saving, applies to sessions without a mode override. Existing overrides stay intact; Off disables core rule injection.',
   skillsHint: 'Controls optional skill availability only, not Ponytail core constraints. Checking a skill does not run it.',
@@ -71,7 +75,7 @@ interface Scope {
   mutate(ops: object[], revision?: number): Promise<void>
 }
 
-export function SettingsCard({ scope, t }: { scope: Scope; t: (key: string) => string }) {
+export function SettingsCard({ scope, t, profileBacked = false }: { scope: Scope; t: (key: string) => string; profileBacked?: boolean }) {
   const id = useId()
   const [modeInfoOpen, setModeInfoOpen] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -114,9 +118,9 @@ export function SettingsCard({ scope, t }: { scope: Scope; t: (key: string) => s
       setBusy(false)
     }
   }
-  return h('li', { className: 'ponytail-settings' },
+  return h(profileBacked ? 'section' : 'li', { className: 'ponytail-settings' },
     h('h3', null, t('title')), h('p', null, t('description')),
-    h('p', null, t('boundary')),
+    h('p', null, t(profileBacked ? 'profileBoundary' : 'boundary')),
     snapshot.status !== 'ready' ? h('p', { role: 'status' }, t('unavailable')) : null,
     snapshot.status === 'ready' && !snapshot.writable ? h('p', { role: 'status' }, t('readOnly')) : null,
     h('div', { className: 'ponytail-mode',
@@ -159,7 +163,7 @@ const STYLE = '.ponytail-settings{list-style:none;border:1px solid var(--dsw-ali
   + '.ponytail-mode{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:fit-content;max-width:100%}.ponytail-settings .ponytail-mode-info{display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:50%;font-size:13px;font-weight:600;background:transparent;cursor:help}.ponytail-mode-tooltip{position:absolute;z-index:10;top:calc(100% + 8px);left:0;box-sizing:border-box;width:min(360px,calc(100vw - 84px));padding:16px;border:1px solid var(--dsw-alias-border-l4);border-radius:12px;background:var(--dsw-alias-bg-layer-3);box-shadow:0 8px 24px #0000001a,0 2px 6px #0000000a;overflow-wrap:anywhere}.ponytail-mode-tooltip::before{content:"";position:absolute;left:0;right:0;top:-12px;height:12px}.ponytail-tooltip-title{display:block;font-size:14px;line-height:1.5}.ponytail-mode-tooltip .ponytail-tooltip-body{margin:8px 0 0;font-size:14px;line-height:1.7}.ponytail-mode-tooltip .ponytail-tooltip-note{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l4);font-size:12px;line-height:1.6;color:var(--dsw-alias-label-secondary,var(--dsw-alias-label-primary))}.ponytail-mode select{max-width:100%}'
 
 export function apply(ctx: any): void {
-  ctx.inject(['locale', 'settingsScope', 'slots', 'connection'], (client: any) => {
+  ctx.inject(['locale', 'slots'], (client: any) => {
     const t = client.locale.bind('ponytail')
     client.effect(() => client.locale.register('ponytail', { zh, en }), 'ponytail: dictionaries')
     client.effect(() => {
@@ -168,21 +172,34 @@ export function apply(ctx: any): void {
       document.head.append(style)
       return () => style.remove()
     }, 'ponytail: settings style')
-    const bound = client.settingsScope.bind({ namespace: 'ponytail' })
-    // Older DSH scopes expose only per-field writes and swallow rejected writes.
-    // Use their real atomic RPC instead, preserving the draft's revision fence.
-    const scope: Scope = {
-      getSnapshot: bound.getSnapshot.bind(bound),
-      subscribe: bound.subscribe.bind(bound),
-      mutate: typeof bound.mutate === 'function' ? bound.mutate.bind(bound) : async (ops, revision) => {
-        const response = await client.connection.api.settings.mutate({ ns: 'ponytail', ops,
-          ...(revision === undefined ? {} : { expectedRevision: revision }) })
-        if (!response.result.ok) throw new Error(response.result.error?.message ?? 'Ponytail settings write failed')
-      },
+    const mountSettings = (bound: any, profileBacked: boolean, connection?: any) => {
+      // Modern forms return false on refusal; legacy scopes need atomic RPC.
+      const scope: Scope = {
+        getSnapshot: bound.getSnapshot.bind(bound),
+        subscribe: bound.subscribe.bind(bound),
+        mutate: typeof bound.mutate === 'function' ? async (ops, revision) => {
+          if (await bound.mutate(ops, revision) === false) throw new Error(t('refused'))
+        } : async (ops, revision) => {
+          const response = await connection.api.settings.mutate({ ns: 'ponytail', ops,
+            ...(revision === undefined ? {} : { expectedRevision: revision }) })
+          if (!response.result.ok) throw new Error(response.result.error?.message ?? 'Ponytail settings write failed')
+        },
+      }
+      const slot = profileBacked ? 'settings.plugins.tab' : 'settings.plugin.item'
+      client.slots.inject(slot, () => client.slots.register({
+        name: slot, id: 'ponytail', key: 'ponytail', order: 30, label: () => t('title'), locale: 'ponytail', inject: () => ({ scope, profileBacked }),
+      }, SettingsCard))
     }
-    client.slots.inject('settings.plugin.item', () => client.slots.register({
-      name: 'settings.plugin.item', key: 'ponytail', locale: 'ponytail', inject: () => ({ scope }),
-    }, SettingsCard))
+    // Cordis inject maps are service intercept options, not optional dependencies.
+    // Keep generations separate so missing legacy services cannot block modern UI.
+    client.inject(['configForms'], (settings: any) => {
+      mountSettings(settings.configForms.get('ponytail'), true)
+    })
+    client.inject(['settingsScope'], (settings: any) => {
+      const bound = settings.settingsScope.bind({ namespace: 'ponytail' })
+      if (typeof bound.mutate === 'function') mountSettings(bound, false)
+      else settings.inject(['connection'], (rpc: any) => mountSettings(bound, false, rpc.connection))
+    })
     // Optional native mode picker. Explicit argued commands keep their host
     // semantics; only a bare /ponytail opens the selection menu.
     client.inject(['commandUi', 'remote'], (menu: any) => {

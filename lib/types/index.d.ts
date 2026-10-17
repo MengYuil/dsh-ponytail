@@ -14,6 +14,7 @@
  * @module @mengyuly/dsh-ponytail
  */
 import type { Context } from '@deepseek-ai/cordis';
+import z from '@deepseek-ai/schemastery';
 export declare const name = "ponytail";
 export declare const inject: string[];
 /** Producer-owned attribution accepted by the durable V4 session format. */
@@ -30,14 +31,17 @@ declare module '@deepseek-ai/dsh-llm' {
  * `config` in a profile patch). `defaultMode` sits between the environment
  * variable and the user config file in the default-resolution chain.
  *
- * No `Config` schema is exported on purpose: cordis passes the raw config
- * through unvalidated then, so an invalid `defaultMode` falls back with a
- * one-time warning instead of failing the plugin mount.
+ * Live fields support schema-derived desktop/Web configuration forms.
+ * `defaultMode` remains permissive so invalid legacy values still warn and
+ * fall back rather than preventing the plugin from mounting.
  */
 export interface PonytailConfig {
     /** Profile-scoped default intensity, e.g. `web → full`, `tui → lite`. */
     defaultMode?: unknown;
+    /** Profile-backed optional-skill toggles; never disable the core rules. */
+    disabledSkills?: unknown;
 }
+export declare const Config: z<PonytailConfig>;
 /** Extract the plain text of one user message (only its text blocks). */
 export declare function messageText(message: {
     content: readonly {

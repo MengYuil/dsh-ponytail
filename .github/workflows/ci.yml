@@ -26,7 +26,7 @@ jobs:
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Ponytail core behavior invariants"
         run: node scripts/test-core.mjs
       - name: Install isolated UI test dependencies
-        run: npm install --prefix "${{ runner.temp }}/ponytail-ui-tools" --ignore-scripts --no-audit --no-fund react@18.3.1 react-dom@18.3.1 jsdom@26.1.0
+        run: npm install --prefix "${{ runner.temp }}/ponytail-ui-tools" --ignore-scripts --no-audit --no-fund react@18.3.1 react-dom@18.3.1 jsdom@26.1.0 @deepseek-ai/cordis@4.0.4
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] Shipped browser UI interactions"
         env:
           PONYTAIL_TOOL_ROOT: ${{ runner.temp }}/ponytail-ui-tools
@@ -43,6 +43,37 @@ jobs:
         run: node scripts/test-release-retry.mjs
       - name: "[${{ matrix.os }} / node ${{ matrix.node }}] TypeScript consumer test (NodeNext, skipLibCheck:false, packed tarball)"
         run: node scripts/test-consumer.mjs
+
+  host-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ['0.1.1-rc.2', '0.1.2-rc.1', '0.1.5-rc.3', '0.1.7-rc.2', '0.2.0-rc.2', '0.2.1-rc.2']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Install isolated browser tooling
+        run: npm install --prefix "${{ runner.temp }}/ponytail-host-ui-tools" --ignore-scripts --no-audit --no-fund playwright@1.64.0
+      - name: Install browser
+        run: node "${{ runner.temp }}/ponytail-host-ui-tools/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Real DSH panel, save, restart and reset
+        env:
+          TMPDIR: ${{ runner.temp }}
+          PONYTAIL_TOOL_ROOT: ${{ runner.temp }}/ponytail-host-ui-tools
+          PONYTAIL_VERIFY_KEEP_TEMP: '1'
+        run: node scripts/test-host-ui.mjs ${{ matrix.dsh }}
+      - name: Retain real-browser evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponytail-ui-dsh-${{ matrix.dsh }}
+          path: ${{ runner.temp }}/ponytail-host-ui-${{ matrix.dsh }}-*/evidence
+          if-no-files-found: warn
+          retention-days: 14
 
   persistence:
     runs-on: ubuntu-24.04
